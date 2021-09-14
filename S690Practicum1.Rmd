@@ -1,0 +1,216 @@
+---
+title: "S690 - Practicum 1"
+author: "Brandon Kill"
+date: "9/7/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(alr4)
+library(lme4)
+library(pscl)
+```
+
+```{r}
+P1Data_all <- read_xlsx("./Practicum 1 Data.xlsx")
+#View(P1Data_all)
+P1Data1 <- P1Data_all[,1:8]
+P1Data2 <- select(P1Data_all, weightgain, lbs_gained, pounds_gained, bweight,BMI, `Vig ex Time`, `Mod ex time`, `Walk ex Time`, Total_Met_Min)
+P1Data <- data.frame(cbind(P1Data1, P1Data2))
+```
+
+# Data cleaning
+```{r}
+# factor variables as factors
+P1Data$weightgain <- as.factor(P1Data$weightgain)
+P1Data$dept <- as.factor(P1Data$dept)
+P1Data$Job <- as.factor(P1Data$Job)
+P1Data$shift <- as.factor(P1Data$shift)
+P1Data$gender <- as.factor(P1Data$gender)
+
+summary(P1Data)
+
+# lbs_gained is the same as pounds_gained?
+mean(na.omit(P1Data$lbs_gained) == na.omit(P1Data$pounds_gained))
+# remove pounds_gained
+P1Data <- P1Data[, -which(variable.names(P1Data)=="pounds_gained")]
+
+
+# Weight gain is often measured as a percent change in body weight.
+#P1Data$perc_gain <- P1Data$lbs_gained/P1Data$bweight
+
+# check that Total_Met_Min follows correct pattern
+# # Total_Met_Min = 8*Vig.Ex.Time + 4*Mod.Ex.Time + 3.3*Walk.Ex.Time
+lm1 <- lm(Total_Met_Min ~ Vig.ex.Time + Mod.ex.time + Walk.ex.Time, data = P1Data)
+summary(lm1)
+sum(residuals(lm1) > 0.0001 | residuals(lm1) < -0.0001)
+# it does!
+
+# if we choose to make NA's in excercise time = 0
+P1Data$Vig.ex.Time[which(is.na(P1Data$Vig.ex.Time)==TRUE)] <- 0
+P1Data$Mod.ex.time[which(is.na(P1Data$Mod.ex.time)==TRUE)] <- 0
+P1Data$Walk.ex.Time[which(is.na(P1Data$Walk.ex.Time)==TRUE)] <- 0
+
+# if exercise time data is there, but T_M_M is still `NA`, fix it
+P1Data$Total_Met_Min <- 8*P1Data$Vig.ex.Time + 4*P1Data$Mod.ex.time + 3.3*P1Data$Walk.ex.Time
+
+# If weightgain = "No", lbs_gained should be 0
+P1Data$lbs_gained[which(P1Data$weightgain=="No")] <- 0
+
+# Identify complete cases
+P1Data$complete <- as.numeric(complete.cases(P1Data))
+P1Data$complete <- as.factor(P1Data$complete)
+```
+
+# EDA
+```{r}
+## identify cases where no data was recorded
+P1Data_miss <- P1Data[which(is.na(P1Data$Snumber)==TRUE), ]
+nrow(P1Data_miss)
+# there were 40 employees who chose not to participate
+
+P1Data_no_blank <- P1Data[which(is.na(P1Data$Snumber)==FALSE),]
+nrow(P1Data_no_blank)
+
+## isolate complete cases
+P1Data_comp <- filter(P1Data, complete == "1")
+nrow(P1Data_comp)
+
+## isolate cases where at least one variable was reported
+P1Data_attempt <- filter(P1Data, is.na(Snumber)==FALSE)
+nrow(P1Data_attempt)
+
+## isolate cases where at least one variable was reported but cases not complete
+P1Data_incomp <- filter(P1Data_attempt, complete == 0)
+nrow(P1Data_incomp)
+
+summary(P1Data_comp$gender)
+pie(summary(P1Data_comp$gender))
+
+
+summary(P1Data_comp$weightgain)
+pie(summary(P1Data_comp$weightgain))
+```
+
+```{r}
+hist(P1Data_comp$lbs_gained, breaks = c(0, seq(1,71,3)), freq = FALSE);
+lines(density(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")]))
+
+hist(log(P1Data_comp$lbs_gained), freq = FALSE);
+lines(density(log(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")])))
+```
+
+
+```{r}
+hist(log(na.omit(P1Data_no_blank$lbs_gained[which(P1Data_no_blank$weightgain=="Yes")])), freq = FALSE);lines(density(log(na.omit(P1Data_no_blank$lbs_gained[which(P1Data_no_blank$weightgain=="Yes")]))))
+hist(P1Dat)
+```
+
+
+```{r}
+sum(as.numeric(P1Data_no_blank$complete))
+
+lbs_jitter <- vector(length = nrow(P1Data_comp))
+for (i in 1:length(lbs_jitter)) {
+  if (P1Data_comp$lbs_gained[i] == 0) {
+    lbs_jitter[i] <- P1Data_comp$lbs_gained[i]
+  }
+  else {
+    lbs_jitter[i] <- P1Data_comp$lbs_gained[i] + runif(1,-2.5,2.5)
+  }
+}
+lbs_jitter
+
+
+M <- mean(lbs_jitter[which(P1Data_comp$weightgain=="Yes")])
+V <- var(lbs_jitter[which(P1Data_comp$weightgain=="Yes")])
+theta <- V/M
+k <- M/theta
+
+
+hist(lbs_jitter[which(P1Data_comp$weightgain=="Yes")], breaks = c(0, seq(1,80,3)), freq = FALSE);
+lines(density(lbs_jitter[which(P1Data_comp$weightgain=="Yes")]));
+```
+
+
+lbs_jitter <- lbs
+
+```{r}
+qqnorm(log(P1Data$lbs_gained), ylim = c(0,4)); qqline(log(P1Data$lbs_gained))
+```
+
+```{r}
+lm1 <- plot(log(lbs_gained)~Total_Met_Min, data = P1Data[which()])
+plot(lm1)
+
+lm1 <- lm(log(lbs_gained)~Total_Met_Min, data = P1Data_comp)
+plot(lm1)
+summary(lm1)
+```
+```{r}
+# Isolate just the people who admitted to gaining weight
+P1Data_gain <- filter(P1Data, weightgain == "Yes")
+head(P1Data_gain)
+
+lm2 <- lm(log(lbs_gained)~Total_Met_Min, data = P1Data_gain)
+summary(lm2)
+plot(lm2)
+# Assumptions met, but no relationship
+
+str(P1Data_comp)
+
+lm10 <- lm(perc_gain~gender+Age+shift+dept, data = P1Data_comp)
+summary(lm10)
+```
+
+```{r}
+lm0 <- lm(lbs_gained~1, data = P1Data_attempt)
+M <- mean(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")])
+V <- var(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")])
+theta <- V/M; theta
+k <- M/theta;k
+```
+
+\newpage
+
+PAUL, HERE IS THE STUFF FOR THE REPORT:
+
+
+We are going to fit a zero-inflated count model. Fix missing values. Binomial response - gainweight Yes/No.
+Poisson or NegBinom or Something else - lbs_gained. Need to decide if keeping NA's in responses (spec lbs_gained). We included 
+
+
+
+# Specific Aims:
+
+## 1) Determine if total metabolic minutes have an effect on weight gain.
+
+1.1   The histogram of `lbs_gained` indicates that we are dealing with a truncated model. The questionnaire asked if the subject had gained weight, and if so, how many pounds they gained.  The questionnaire did NOT give an opportunity for those who lost weight to report their negative weight change.  So, our first step (after removing the subjects who failed to fully complete the survey) will be to separate those who gained weight from those who did not.
+
+1.2   Further exploratory data analysis will reveal whether any variable mutations (percentages, differences, etc.) or transformations (log, polynomial, etc.) will be necessary.
+
+1.3   We will then consider fitting a binomial logit model for the binary variable `weightgain` ("Yes" or "No"), and we will use metabolic minutes (as well as the rest of the relevant available predictors) to see if we can reliably model the likelihood of whether or not a subject gains weight.
+
+1.4   Afterwards, we will attempt to use zero-inflated Poisson regression to model the number of pounds gained, again using total metabolic minutes and the rest of the relevant predictors.
+
+1.5   Given the shape of the histogram of weight gain, other viable models could also be considered when determining if, how, and to what extent total metabolic minutes affects weight gain.
+
+
+## 2) Does shift have an effect on weight gain?
+
+2.1   To analyze the impact an employee's shift has on weight gain, we will use a linear mixed effects model to account for the hierarchical nature of the categorical data.  One's shift is inherently nested inside one's job which is inherently nested inside one's department, which encourages us to use multilevel regression analysis in this case.
+
+2.2   The next step is to make multiple models, choosing different combinations of the variable hierarchy in (2.1) to be fixed effects and nested random effects.
+
+2.3   We will then use the Restricted Maximum Likelihood approach for determining goodness-of-fit for the mixed models in order for us to best determine if, how, and to what extend shift affects weight gain.
+
+
+
+
+
+# Conclusion
+When it comes to the data provided, the lack of opportunity for subjects to indicate the existence and quantity of weight loss exhibits a troubling lack of foresight and planning in the data collection process, and the sheer amount of partially-completed surveys displays a stunning lack of supervision for which we are not responsible. However, we are confident that we can clean up the data provided in such a way that it can still be useful in our analysis. We will utilize the statistical methods outlined above to provide you with meaningful answers as to whether metabolic minutes or an employee's shift have an impact on weight gain, and if so, in what way, and by how much.

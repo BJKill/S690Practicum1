@@ -1,0 +1,190 @@
+---
+title: "SAP"
+author: "Group 1: Brendan Winters, Brandon Kill, Paul Hunt"
+date: "9/10/2021"
+classoption: table
+output: 
+  pdf_document:
+    extra_dependencies: ctable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+data <- read.csv("Practicum 1 Data.csv")
+```
+
+```{r}
+Data <- data[c("Job", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig.ex.Time", "Walk.ex.Time", "Mod.ex.time", "Total_Met_Min")]
+Data$lbs_gained[Data$weightgain == "No"] <- 0
+Data <- Data[is.na(Data$lbs_gained) == FALSE,]
+
+Data$Vig.ex.Time <- as.numeric(Data$Vig.ex.Time)
+Data$Mod.ex.time <- as.numeric(Data$Mod.ex.time)
+Data$Total_Met_Min <- as.numeric(Data$Total_Met_Min)
+
+for(i in 1:ncol(Data)){
+  if(is.character(Data[,i])){
+    Data[,i] <- as.factor(Data[,i])
+  }
+}
+
+
+```
+
+```{r}
+plot(Data)
+
+```
+
+# Summary Statistics
+```{r, include=FALSE}
+lbs_g.m <- mean(Data$lbs_gained)
+lbs_g.sd <- sd(Data$lbs_gained)
+lbs_g.n <- sum(is.na(Data$lbs_gained) == FALSE)
+
+male.n <- sum(Data$gender == "Male")
+female.n <- sum(Data$gender == "Female")
+
+male.p <- male.n/(male.n+female.n)
+female.p <- female.n/(male.n+female.n)
+
+s7am.n   <- sum(Data$shift == "7am")
+s8am.n   <- sum(Data$shift == "8am")
+s9am.n   <- sum(Data$shift == "9am")
+s10am.n  <- sum(Data$shift == "10am")
+s11am.n  <- sum(Data$shift == "11am")
+s12pm.n  <- sum(Data$shift == "12pm")
+s1pm.n   <- sum(Data$shift == "1pm")
+s2pm.n   <- sum(Data$shift == "2pm")
+sother.n <- sum(Data$shift == "other")
+
+stotal <- sum(Data$shift != "")
+s7am.p   <- s7am.n/sum(Data$shift != "")
+s8am.p   <- s8am.n/sum(Data$shift != "")
+s9am.p   <- s9am.n/sum(Data$shift != "")
+s10am.p  <- s10am.n/sum(Data$shift != "")
+s11am.p  <- s11am.n/sum(Data$shift != "")
+s12pm.p  <- s12pm.n/sum(Data$shift != "")
+s1pm.p   <- s1pm.n/sum(Data$shift != "")
+s2pm.p   <- s2pm.n/sum(Data$shift != "")
+sother.p <- sother.n/sum(Data$shift != "")
+
+jtotal <- sum(Data$Job != "")
+j1.n   <- sum(Data$Job == levels(Data$Job)[2])
+j2.n   <- sum(Data$Job == levels(Data$Job)[3])
+j3.n   <- sum(Data$Job == levels(Data$Job)[4])
+j4.n   <- sum(Data$Job == levels(Data$Job)[5])
+j5.n   <- sum(Data$Job == levels(Data$Job)[6])
+j6.n   <- sum(Data$Job == levels(Data$Job)[7])
+j7.n   <- sum(Data$Job == levels(Data$Job)[8])
+j8.n   <- sum(Data$Job == levels(Data$Job)[9])
+j9.n   <- sum(Data$Job == levels(Data$Job)[10])
+j10.n  <- sum(Data$Job == levels(Data$Job)[11])
+j11.n  <- sum(Data$Job == levels(Data$Job)[13])
+j12.n  <- sum(Data$Job == levels(Data$Job)[14])
+j13.n  <- sum(Data$Job == levels(Data$Job)[15])
+j14.n  <- sum(Data$Job == levels(Data$Job)[16])
+j15.n  <- sum(Data$Job == levels(Data$Job)[12])
+
+j1.p   <- j1.n/jtotal
+j2.p   <- j2.n/jtotal
+j3.p   <- j3.n/jtotal
+j4.p   <- j4.n/jtotal
+j5.p   <- j5.n/jtotal
+j6.p   <- j6.n/jtotal
+j7.p   <- j7.n/jtotal
+j8.p   <- j8.n/jtotal
+j9.p   <- j9.n/jtotal
+j10.p  <- j10.n/jtotal
+j11.p  <- j11.n/jtotal
+j12.p  <- j12.n/jtotal
+j13.p  <- j13.n/jtotal
+j14.p  <- j14.n/jtotal
+j15.p  <- j15.n/jtotal
+  
+age.m <- mean(na.omit(Data$Age))
+age.sd <- sd(na.omit(Data$Age))
+age.n <- sum(is.na(Data$Age) == FALSE)
+
+height.m <- mean(na.omit(Data$height))
+height.sd <-  sd(na.omit(Data$height))
+height.n <- sum(is.na(Data$height) == FALSE)
+
+bw.m <- mean(na.omit(Data$bweight))
+bw.sd <-  sd(na.omit(Data$bweight))
+bw.n <- sum(is.na(Data$bweight) == FALSE)
+
+bmi.m <- mean(na.omit(Data$BMI))
+bmi.sd <-  sd(na.omit(Data$BMI))
+bmi.n <- sum(is.na(Data$BMI) == FALSE)
+
+vxt.m <- mean(na.omit(Data$Vig.ex.Time))
+vxt.sd <-  sd(na.omit(Data$Vig.ex.Time))
+vxt.n <- sum(is.na(Data$Vig.ex.Time) == FALSE)
+
+mxt.m <- mean(na.omit(Data$Mod.ex.time))
+mxt.sd <-  sd(na.omit(Data$Mod.ex.time))
+mxt.n <- sum(is.na(Data$Mod.ex.time) == FALSE)
+
+wxt.m <- mean(na.omit(Data$Walk.ex.Time))
+wxt.sd <-  sd(na.omit(Data$Walk.ex.Time))
+wxt.n <- sum(is.na(Data$Walk.ex.Time) == FALSE)
+
+tmm.m <- mean(na.omit(Data$Total_Met_Min))
+tmm.sd <-  sd(na.omit(Data$Total_Met_Min))
+tmm.n <- sum(is.na(Data$Total_Met_Min) == FALSE)
+```
+
+\begin{tabular}{|l|ccc|} \hline
+\bf{Variable}                         & \bf{Count (\%)}                           & \bf{n Missing }            & \bf{Mean}                  \\
+                                      &                                           &                            & (S.D.)                     \\ \specialrule{.2em}{.1em}{.1em}  \rowcolor{cyan}
+\bf{lbs. Gained}                      & `r lbs_g.n`                               & 0                          & `r round(lbs_g.m, 2)`      \\                                 \rowcolor{cyan}
+                                      &                                           &                            & (`r round(lbs_g.sd, 2)`)   \\       
+\bf{Gender}                           &                                           &`r lbs_g.n-male.n-female.n` &                            \\                                 \rowcolor{lightgray}
+\; \; male                            & `r male.n` (`r round(male.p, 4)*100`)     &                            &                            \\
+\; \; female                          & `r female.n` (`r round(female.p, 4)*100`) &                            &                            \\                                 \rowcolor{cyan}                                
+\bf{Shift}                            &  `r stotal`                               &`r lbs_g.n-stotal         ` &                            \\                                 \rowcolor{gray}
+\; \; 7am                             & `r s7am.n` (`r round(s7am.p, 4)*100`)     &                            &                            \\                                 \rowcolor{cyan}
+\; \; 8am                             & `r s8am.n` (`r round(s8am.p, 4)*100`)     &                            &                            \\                                 \rowcolor{gray}
+\; \; 9am                             & `r s9am.n` (`r round(s9am.p, 4)*100`)     &                            &                            \\                                 \rowcolor{cyan}
+\; \; 10am                            & `r s10am.n` (`r round(s10am.p, 4)*100`)   &                            &                            \\                                 \rowcolor{gray}
+\; \; 11am                            & `r s11am.n` (`r round(s11am.p, 4)*100`)   &                            &                            \\                                 \rowcolor{cyan}
+\; \; 12pm                            & `r s12pm.n` (`r round(s12pm.p, 4)*100`)   &                            &                            \\                                 \rowcolor{gray}
+\; \; 1pm                             & `r s1pm.n` (`r round(s1pm.p, 4)*100`)     &                            &                            \\                                 \rowcolor{cyan}
+\; \; 2pm                             & `r s2pm.n` (`r round(s2pm.p, 4)*100`)     &                            &                            \\                                 \rowcolor{gray}
+\; \; other                           & `r sother.n` (`r round(sother.p, 4)*100`) &                            &                            \\                                 
+\bf{Job}                              & `r jtotal`                                &`r lbs_g.n-jtotal         ` &                            \\                                 \rowcolor{lightgray}
+\; \; 611                             & `r j1.n`   (`r round(j1.p, 4)*100`)       &                            &                            \\                                 
+\; \; AOC                             & `r j2.n`   (`r round(j2.p, 4)*100`)       &                            &                            \\                                 \rowcolor{lightgray}
+\; \; Collections                     & `r j3.n`   (`r round(j3.p, 4)*100`)       &                            &                            \\                                 
+\; \; COOS                            & `r j4.n`   (`r round(j4.p, 4)*100`)       &                            &                            \\                                 \rowcolor{lightgray}
+\; \; Employee Accounts               & `r j5.n`   (`r round(j5.p, 4)*100`)       &                            &                            \\                                 
+\; \; Executive Relations             & `r j6.n`   (`r round(j6.p, 4)*100`)       &                            &                            \\                                 \rowcolor{lightgray}
+\; \; FRC                             & `r j7.n`   (`r round(j7.p, 4)*100`)       &                            &                            \\                                 
+\; \; Internal                        & `r j8.n`   (`r round(j8.p, 4)*100`)       &                            &                            \\                                 \rowcolor{lightgray}
+\; \; OCA                             & `r j9.n `  (`r round(j9.p, 4)*100`)       &                            &                            \\                                 
+\; \; Operations                      & `r j10.n`  (`r round(j10.p, 4)*100`)      &                            &                            \\                                 \rowcolor{lightgray}
+\; \; Refunds                         & `r j11.n`  (`r round(j11.p, 4)*100`)      &                            &                            \\                                 
+\; \; Resource Mgt.                   & `r j12.n`  (`r round(j12.p, 4)*100`)      &                            &                            \\                                 \rowcolor{lightgray}
+\; \; Response                        & `r j13.n`  (`r round(j13.p, 4)*100`)      &                            &                            \\                                 
+\; \; Tech Support                    & `r j14.n`  (`r round(j14.p, 4)*100`)      &                            &                            \\
+\; \; other                           & `r j15.n`  (`r round(j15.p, 4)*100`)      &                            &                            \\                                 \rowcolor{cyan}
+\bf{Age}                              & `r age.n`                                 &`r lbs_g.n-age.n`           & `r round(age.m, 2)`        \\                                 \rowcolor{cyan}
+                                      &                                           &                            & (`r round(age.sd, 2)`)     \\                                 
+\bf{Height} (in.)                     & `r height.n`                              &`r lbs_g.n-height.n`        & `r round(height.m, 2)`     \\                                 
+                                      &                                           &                            & (`r round(height.sd, 2)`)  \\                                 \rowcolor{cyan}
+\bf{b Weight}                         & `r bw.n`                                  &`r lbs_g.n-bw.n`            & `r  round(bw.m, 2)`        \\                                 \rowcolor{cyan}
+                                      &                                           &                            & (`r round(bw.sd, 2)`)      \\       
+\bf{BMI}                              & `r bmi.n`                                 &`r lbs_g.n-bmi.n`           & `r  round(bmi.m, 2)`       \\                                  
+                                      &                                           &                            & (`r round(bmi.sd, 2)`)     \\                                 \rowcolor{cyan}
+\bf{Vigorous Excercise Time}          & `r vxt.n`                                 &`r lbs_g.n-vxt.n`           & `r  round(vxt.m, 2)`       \\                                 \rowcolor{cyan} 
+                                      &                                           &                            & (`r round(vxt.sd, 2)`)     \\       
+\bf{Moderate Excercise Time}          & `r mxt.n`                                 &`r lbs_g.n-mxt.n`           & `r  round(mxt.m, 2)`       \\                                 
+                                      &                                           &                            & (`r round(mxt.sd, 2)`)     \\                                 \rowcolor{cyan}
+\bf{Walk Excercise Time}              & `r wxt.n`                                 &`r lbs_g.n-wxt.n`           & `r  round(wxt.m, 2)`       \\                                 \rowcolor{cyan} 
+                                      &                                           &                            & (`r round(wxt.sd, 2)`)     \\       
+\bf{Total Metabolic Minutes}          & `r tmm.n`                                 &`r lbs_g.n-tmm.n`           & `r  round(tmm.m, 2)`       \\        
+                                      &                                           &                            & (`r round(tmm.sd, 2)`)     \\ \hline
+\end{tabular}
+         
