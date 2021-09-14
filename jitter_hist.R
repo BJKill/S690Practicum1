@@ -46,5 +46,3 @@ hist(lbs_jitter[which(P1Data_comp$weightgain=="Yes")], breaks = seq(0,72,3), fre
 lines(density(lbs_jitter[which(P1Data_comp$weightgain=="Yes")]))
 
 
-
-

@@ -9,34 +9,49 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+# Introduction
+One may posit that the rapid development of, and increase in, computer-related jobs has led to a decline in individual activity over the past century. Some companies are even incurring additional healthcare costs, as employees are more sedative at work than ever before in recorded history. As a response, many large employers have installed fitness centers on their campus, and one has enlisted our help analyzing some fitness data they gathered from their employees (submitted voluntarily). Our task is to determine if total metabolic minutes or an employee's shift start time affect whether and how much weight they gain in an eight-month period.
+
+
+# Analysis Population
+This study will draw upon a data set consisting of several health metrics self-reported within an eight month period by a call center’s employees. The data set contains metrics for 392 employees, but only 342 observations include the response pounds gained. Table one shows summaries of the responses to various questions among those who gave the number of pounds they gained or indicated that they did not gain weight (recorded in the data as 0 lbs. gained). Some potential predictors included in the study are gender, age, height, weight, department, job, and shift time, which is one of the two main predictors that the employer is most interested in.
+
+Another predictor variable given is exercise time, which is broken down to vigorous exercise time, moderate exercise time, and walk exercise time, all measured in minutes. These three exercise times form the composite metric “Total Metabolic Minutes,” which assigns weights of 8, 4, and 3.3 to the three categories of exercise times, respectively. Total Metabolic Minutes is the second main predictor of weight gain that the employer is most interest in. For the response, we have an indication as to whether or not employees gained weight as well as the number of pounds they gained. Finally, we have BMI and base weight at our disposal, which may be of use to us when detecting potential outliers.
+
+
 # Specific Aims:
 
 ## 1) Determine if total metabolic minutes have an effect on weight gain.
 
-- 1.1   The histogram of `lbs_gained` indicates that we are dealing with a truncated model. The questionnaire asked if the subject had gained weight, and if so, how many pounds they gained.  The questionnaire did NOT give an opportunity for those who lost weight to report their negative weight change.  So, our first step (after removing the subjects who failed to fully complete the survey) will be to separate those who gained weight from those who did not.
+- 1.1 -  The histogram of `lbs_gained` indicates that we are dealing with a truncated model. The questionnaire asked if the subject had gained weight, and if so, how many pounds they gained.  The questionnaire did NOT give an opportunity for those who lost weight to report their negative weight change.  So, our first step (after removing the subjects who failed to fully complete the survey) will be to separate those who gained weight from those who did not.
 
-- 1.2   Further exploratory data analysis will reveal whether any variable mutations (percentages, differences, etc.) or transformations (log, polynomial, etc.) will be necessary.
+- 1.2 -  Further exploratory data analysis will reveal whether any variable mutations (percentages, differences, etc.) or transformations (log, polynomial, etc.) will be necessary.
 
-- 1.3   We will then consider fitting a binomial logit model for the binary variable `weightgain` ("Yes" or "No"), and we will use metabolic minutes (as well as the rest of the relevant available predictors) to see if we can reliably model the likelihood of whether or not a subject gains weight.
+- 1.3 -  We will then consider fitting a binomial logit model for the binary variable `weightgain` ("Yes" or "No"), and we will use metabolic minutes (as well as the rest of the relevant available predictors) to see if we can reliably model the likelihood of whether or not a subject gains weight.
 
-- 1.4   Afterwards, we will attempt to use zero-inflated Poisson regression to model the number of pounds gained, again using total metabolic minutes and the rest of the relevant predictors.
+- 1.4 -  Afterwards, we will attempt to use zero-inflated poisson regression to model the number of pounds gained, again using total metabolic minutes and the rest of the relevant predictors. This is a piece-wise regression process that includes first, the binomial model for gaining weight or not, and then a Poisson model for the number of pounds gained.
 
-- 1.5   Given the shape of the histogram of weight gain, other viable models could also be considered when determining if, how, and to what extent total metabolic minutes affects weight gain.
+- 1.5 -  Given the shape of the histogram of weight gain, and especially the wording and design of the survey, other viable tools such as truncated or censored regression analysis could also be considered when determining if total metabolic minutes affects weight gain.
 
 
 ## 2) Does shift have an effect on weight gain?
 
-- 2.1   To analyze the impact an employee's shift has on weight gain, we will use a linear mixed effects model to account for the hierarchical nature of the categorical data.  One's shift is inherently nested inside one's job which is inherently nested inside one's department, which encourages us to use multilevel regression analysis in this case.
+- 2.1 -  To analyze the impact an employee's shift has on weight gain, we will initially use nested mixed effects to account for the hierarchical nature of the categorical data in our weight gain model.  One's shift is inherently nested inside one's job which is inherently nested inside one's department, encouraging us to use multilevel regression analysis in this case. 
 
-- 2.2   The next step is to make multiple models, choosing different combinations of the variable hierarchy in (2.1) to be fixed effects and nested random effects.
+- 2.2 -  Because our response is not Gaussian in nature, we will need to use generalized mixed effects regression so that we can utilize the different link functions to the binomial and poisson distributions.
 
-- 2.3   We will then use the Restricted Maximum Likelihood approach for determining goodness-of-fit for the mixed models in order for us to best determine if, how, and to what extend shift affects weight gain.
+- 2.3 -  The next step is to use these results to see if we need to make any additional, yet similar models, with different combinations of the nested variable hierarchy in (2.1) as random effects and fixed effects.
 
+- 2.4 -  We will then use the Restricted Maximum Likelihood approach for determining goodness-of-fit for the mixed effect models in order for us to best determine if shift affects weight gain.
 
+- 2.5 -  If we run into issues with fit, Canonical Correlation Analysis (CCA) could be used to identify multicolinearity between an employee's shift, job, and department. We would not be surprised if having the same job correlated to being in the same department and/or having the same shift.
+
+- 2.6 -  If truncated or censored regression winds up being the superior model (1.5), we will still attempt to first utilize nested mixed effects to deal with shift, job, and department, and then we will adjust accordingly if need be in similar ways as those stated above.
 
 
 
 # Conclusion
-When it comes to the data provided, the lack of opportunity for subjects to indicate the existence and quantity of weight loss exhibits a troubling lack of foresight and planning in the data collection process, and the sheer amount of partially-completed surveys displays a stunning lack of supervision for which we are not responsible. However, we are confident that we can clean up the data provided in such a way that it can still be useful in our analysis. We will utilize the statistical methods outlined above to provide you with meaningful answers as to whether metabolic minutes or an employee's shift have an impact on weight gain, and if so, in what way, and by how much.
+When it comes to analyzing the data provided, the lack of opportunity for subjects to indicate the existence and quantity of weight loss begets a very specific challenge, as an employee's change in weight is now left-truncated at zero pounds. We have many tools at our disposal to handle this phenomenon, and we will utilize the statistical methods outlined above to provide you with meaningful answers as to whether and to what extent metabolic minutes and an employee's shift impact weight gain.
 
 
