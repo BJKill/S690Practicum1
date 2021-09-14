@@ -13,6 +13,7 @@ library(tidyverse)
 library(alr4)
 library(lme4)
 library(pscl)
+library(truncreg)
 ```
 
 ```{r}
@@ -21,6 +22,7 @@ P1Data_all <- read_xlsx("./Practicum 1 Data.xlsx")
 P1Data1 <- P1Data_all[,1:8]
 P1Data2 <- select(P1Data_all, weightgain, lbs_gained, pounds_gained, bweight,BMI, `Vig ex Time`, `Mod ex time`, `Walk ex Time`, Total_Met_Min)
 P1Data <- data.frame(cbind(P1Data1, P1Data2))
+#View(P1Data)
 ```
 
 # Data cleaning
@@ -105,10 +107,7 @@ lines(density(log(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")]))
 ```
 
 
-```{r}
-hist(log(na.omit(P1Data_no_blank$lbs_gained[which(P1Data_no_blank$weightgain=="Yes")])), freq = FALSE);lines(density(log(na.omit(P1Data_no_blank$lbs_gained[which(P1Data_no_blank$weightgain=="Yes")]))))
-hist(P1Dat)
-```
+
 
 
 ```{r}
