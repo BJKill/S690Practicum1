@@ -111,9 +111,8 @@ lines(density(log(P1Data_comp$lbs_gained[which(P1Data_comp$weightgain=="Yes")]))
 
 
 ```{r}
-sum(as.numeric(P1Data_no_blank$complete))
-
 lbs_jitter <- vector(length = nrow(P1Data_comp))
+set.seed(600)
 for (i in 1:length(lbs_jitter)) {
   if (P1Data_comp$lbs_gained[i] == 0) {
     lbs_jitter[i] <- P1Data_comp$lbs_gained[i]
@@ -131,8 +130,8 @@ theta <- V/M
 k <- M/theta
 
 
-hist(lbs_jitter[which(P1Data_comp$weightgain=="Yes")], breaks = c(0, seq(1,80,3)), freq = FALSE);
-lines(density(lbs_jitter[which(P1Data_comp$weightgain=="Yes")]));
+hist(lbs_jitter[which(P1Data_comp$weightgain=="Yes")], breaks = seq(0,72,3), freq = FALSE);
+lines(density(lbs_jitter[which(P1Data_comp$weightgain=="Yes")]))
 ```
 
 
