@@ -14,6 +14,8 @@ library(lavaan)
 library(lme4)
 library(pscl)
 library(faraway)
+library(tidyverse)
+
 
 data <- read_xlsx("Practicum 1 Data.xlsx")
 p1.Data <- data[c("Job", "dept", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig ex Time", "Walk ex Time", "Mod ex time", "Total_Met_Min")]
@@ -33,6 +35,83 @@ p1.Data$lbs_gained[p1.Data$weightgain == "No"] <- 0
 p1.Data <- p1.Data[is.na(p1.Data$lbs_gained) == FALSE,]
 p1.Data$beg_weight <- p1.Data$bweight-p1.Data$lbs_gained 
 ```
+
+## Identify and remove outliers
+```{r}
+library(tidyverse)
+
+# color blind pallet - we were told to use it in EDA
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+p1.Data1 <- na.omit(p1.Data)
+
+
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+p1.Data1 %>%
+  group_by(shift, gender) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), 
+                          lbs_gained, 
+                          as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+  geom_boxplot() +
+  geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.6) +
+  scale_color_manual(values  =  cb_palette[2:3])
+
+p1.Data.out <- p1.Data1 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), "Yes", "No"))
+
+p1.Data2 <- p1.Data.out %>%
+  filter(outlier == "No")
+
+
+
+
+p1.Data2 <- p1.Data2[,-ncol(p1.Data2)]
+
+p1.Data2 %>%
+  group_by(shift, gender) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), 
+                          lbs_gained, 
+                          as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+  geom_boxplot() +
+  geom_text(aes(label = outlier, na.rm = TRUE, hjust = -0.3)) +
+  scale_color_manual(values  =  cb_palette[2:3])
+
+
+
+p1.Data.out2 <- p1.Data2 %>%
+  group_by(shift, gender) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), "Yes", "No"))
+
+p1.Data3 <- p1.Data.out2 %>% filter(outlier == "No")
+
+p1.Data3 %>%
+  group_by(shift, gender) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+  geom_boxplot() +
+  geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette[2:3])
+
+
+
+zipmod <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+
+                     beg_weight*gender+Age*gender, data = p1.Data1)
+zipmod2 <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+
+                      beg_weight*gender+Age*gender, data = p1.Data2)
+zipmod3 <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+
+                      beg_weight*gender+Age*gender, data = p1.Data3)
+summary(zipmod)
+summary(zipmod2)
+summary(zipmod3)
+```
+
+
 
 ## Causal Inference
 ```{r}
@@ -85,42 +164,48 @@ What follows is a list of the predictors under consideration and their hypothesi
 
 These plots 
 ```{r}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+ggplot(p1.Data3, aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm") +
+  scale_color_manual(values  =  cb_palette[2:3])
 ```
 
 ```{r}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+ggplot(p1.Data3, aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm") +
+  scale_color_manual(values  =  cb_palette[2:3])
 ```
 
 ```{r}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+ggplot(p1.Data3, aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm") +
+  scale_color_manual(values  =  cb_palette[2:3])
 
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+ggplot(p1.Data3, aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
+  geom_smooth(method="lm") +
+  scale_color_manual(values  =  cb_palette[2:3])
 ```
 
 
 
 ```{r}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+ggplot(p1.Data3, aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm") +
+  scale_color_manual(values  =  cb_palette[2:3])
 ```
 
 ## ZIP Model
 ```{r Model Estimation}
-zipmod <- zeroinfl(round(lbs_gained,0)~oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = na.omit(p1.Data))
+zipmod <- zeroinfl(round(lbs_gained,0)~oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data3)
 summary(zipmod)
 ```
 
 ```{r Diagnostic Plots}
-plot(log(fitted(zipmod)), log((na.omit(p1.Data)$lbs_gained-fitted(zipmod))^2),
+plot(log(fitted(zipmod)), log((p1.Data3$lbs_gained-fitted(zipmod))^2),
      xlab=expression(hat(mu)[i]),
      ylab=expression((y[i]-hat(mu)[i])^2),
      main = "Estimated Variance vs. Estimated Mean")
 abline(0,1)
+
 
 halfnorm(residuals(zipmod), main = "Half-Normal QQ Plot of Residuals")
 
@@ -128,5 +213,6 @@ plot(fitted(zipmod), resid(zipmod),
      ylab="Residuals",
      xlab="Fitted Values",
      main = "Residual Plot")
+abline(0,0)
 ```
 
