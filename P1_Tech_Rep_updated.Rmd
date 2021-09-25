@@ -1,0 +1,132 @@
+---
+title: "Effects of Work Shift and Total Excersize Time on Weight Gain"
+author: "Paul Hunt, Brandon Kill, Brendan Winters"
+date: "9/25/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(readxl)
+library(ggplot2)
+library(dagitty)
+library(lavaan)
+library(lme4)
+library(pscl)
+library(faraway)
+
+data <- read_xlsx("Practicum 1 Data.xlsx")
+p1.Data <- data[c("Job", "dept", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig ex Time", "Walk ex Time", "Mod ex time", "Total_Met_Min")]
+names(p1.Data)[names(p1.Data)=="Vig ex Time"] <- "Vig_ex_Time"
+names(p1.Data)[names(p1.Data)=="Walk ex Time"] <- "Walk_ex_Time"
+names(p1.Data)[names(p1.Data)=="Mod ex time"] <- "Mod_ex_Time"
+
+p1.Data$Job  <- as.factor(p1.Data$Job)
+p1.Data$shift  <- factor(p1.Data$shift, levels = c("7am", "8am", "9am", "10am","11am","12pm","1pm","2pm", "other"))
+p1.Data$oshift <- unclass(p1.Data$shift)
+p1.Data$gender  <- as.factor(p1.Data$gender)
+p1.Data$dept  <- as.factor(p1.Data$dept)
+p1.Data$weightgain  <- as.factor(p1.Data$weightgain)
+
+p1.Data$Total_Met_Min <- 8*p1.Data$Vig_ex_Time + 4*p1.Data$Mod_ex_Time + 3.3*p1.Data$Walk_ex_Time
+p1.Data$lbs_gained[p1.Data$weightgain == "No"] <- 0
+p1.Data <- p1.Data[is.na(p1.Data$lbs_gained) == FALSE,]
+p1.Data$beg_weight <- p1.Data$bweight-p1.Data$lbs_gained 
+```
+
+## Causal Inference
+```{r}
+CI.graph <- dagitty('dag {
+Job             [pos="0,1"]
+Dept.           [pos="1,1"]
+Walk_ET         [pos="3,1"]
+Mod.ET          [pos="4,1"]
+Vig.ET          [pos="5,1"]
+Shift           [pos="2,2"]
+Total_Met.Min   [pos="4,2"]
+Age             [pos="4,3"]
+Gender          [pos="8,3"]
+Beginning_Weight[pos="6,3"]
+Weight_Gain     [pos="3,4"]
+
+Job -> Dept. -> Shift
+Job -> Shift -> Total_Met.Min
+Shift -> Weight_Gain 
+Walk_ET -> Total_Met.Min
+Mod.ET -> Total_Met.Min
+Vig.ET -> Total_Met.Min -> Weight_Gain
+Age -> Total_Met.Min
+Age -> Weight_Gain
+Age -> Beginning_Weight
+Gender -> Total_Met.Min
+Gender -> Weight_Gain
+Gender -> Beginning_Weight
+Beginning_Weight -> Weight_Gain
+Beginning_Weight -> Total_Met.Min
+}')
+
+plot(CI.graph)
+```
+What follows is a list of the predictors under consideration and their hypothesized effects on weight gain and hypothesized interactions with other predictors.
+
+\begin{itemize}
+\item \bf{Total Metabolic Minutes:} This variable represents total exercise time for respondents in an average week, weighted by the intensity of the exercise. We expect exercise to have a direct effect on weigh gain, most likely with an inverse relationship.
+
+\item \bf{Shift:} This variable indicates the shift in which respondents begin their work day. For ease of interpretation, we have chosen to model it as an ordinal variable, allowing us to analyze the effect of starting work earlier or later. We expect shift to have an effect on total metabolic minutes, since workers may struggle to fit regular exercise into their daily routines depending on their work schedules. Additionally, we are interested in modeling any potential direct effect of shift on weight gain to see if the call center could implement some change to their schedules to facilitate better health.
+
+\item \bf{Age:} We expect the respondent's age to have some effect on total metabolic minutes, since people may find more vigorous exercise more difficult as they age. It may also affect the respondent's beginning weight. Additionally, we expect some direct effect of age on weight gain as metabolism changes with age.
+
+\item \bf{Gender:} The respondent's gender likely affects total metabolic minutes as men and women might tend to engage in different types of exercise on average, and we can expect beginning weight to be affected since men are heavier than women on average. It may also have an effect on weight gain, assuming that the is some difference between the metabolic processes of mean and women on average.
+
+\item \bf{Beginning Weight:} We can expect some influence of initial weight on total metabolic minutes, since the respondent's weight may inform us to their propensity to exercise. It may also impact weight gain, assuming that it serves as a proxy for overall health or innate metabolic levels.
+\end{itemize}
+
+## Plotting the Predictors on Weight Gain
+
+These plots 
+```{r}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm")
+```
+
+```{r}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm")
+```
+
+```{r}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
+  geom_smooth(method="lm")
+```
+
+
+
+```{r}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm")
+```
+
+## ZIP Model
+```{r Model Estimation}
+zipmod <- zeroinfl(round(lbs_gained,0)~oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = na.omit(p1.Data))
+summary(zipmod)
+```
+
+```{r Diagnostic Plots}
+plot(log(fitted(zipmod)), log((na.omit(p1.Data)$lbs_gained-fitted(zipmod))^2),
+     xlab=expression(hat(mu)[i]),
+     ylab=expression((y[i]-hat(mu)[i])^2),
+     main = "Estimated Variance vs. Estimated Mean")
+abline(0,1)
+
+halfnorm(residuals(zipmod), main = "Half-Normal QQ Plot of Residuals")
+
+plot(fitted(zipmod), resid(zipmod),
+     ylab="Residuals",
+     xlab="Fitted Values",
+     main = "Residual Plot")
+```
+
