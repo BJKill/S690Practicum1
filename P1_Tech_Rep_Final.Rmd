@@ -58,6 +58,7 @@ Our study examined 230 employees at a call center in the American South and thei
 
 \newpage
 # Introduction
+
 Our task was to determine how time spent exercising (measured in Total Metabolic Minutes) and shift (time of day a person's job begins) impacted the amount of weight gained over an eight month period for employees at a call center in the American South. Out of over 1000 employees, 342 provided us with information on their weight gain, and of those, only 238 provided us with information on all of the predictors we felt were relevant for our study. Eight extreme values for weight gain were identified as outliers, and those cases were removed for the benefit of the study. 230 subjects were then used for the final analysis - 155 who gained weight and 80 who did not. Gender (152 female, 78 male) was used as a predictor in the study, as it had clear impact on the values of our predictors and of our response. Job and Department were excluded as variables, as all of the information contained in both of those variables are posited to be contained in the shift variable. Beginning weight of the participant and their age were also included as predictors since they had an effect on the time a subject spent exercising. Only one transformation of our predictors was used: the log of Total Metabolic Minutes.
 
 Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the Poisson for determining the number of pounds gained once the threshold is crossed. Although weight gain is an inherently continuous random variable, we are using two discrete distributions (binomial, Poisson) to model it. This is because whether or not one gained weight is a binomial process, and the vast majority of respondents round their weight or weight change to the nearest whole pound. Thus, modeling the number of pounds gained in a fixed time period as a Poisson random variable of counts does not feel inappropriate in this setting, especially since the shape of the distribution of pounds gained fits so well.  The ease of interpretation of the results of the analysis was also considered as a reason for choosing this method.
@@ -129,6 +130,7 @@ ggdag(CI.graph) + theme_dag()+geom_dag_node(col = "gray", size=20) + geom_dag_te
 
 \newpage
 # Exploratory Data Analysis and Transformations
+
 With the main-effects model broadly specified, we turn our attention to the question of whether or not our model may benefit from applying transformations to the predictors. In general, we want to ensure that our observations are roughly symmetrically distributed, but also to avoid unnecessary transformations that may hinder easy interpretation of the model's coefficient estimations. Our approach will depend on visual interpretation of histograms.
 
 The distribution of total metabolic minutes (Figure 2) is strongly right-skewed and evinces a clear need for transformation. The range of observations crosses several orders of magnitude, from 0 to well over 10,000, which implies that a natural logarithm would be an appropriate transformation. The log transformation was performed on TMM+1 to avoid cases of $\log(0)$ which is undefined. The resulting distribution is far less skewed, but is bi-modal with one peak at 0 and another around 7.5. despite the bi-modality, we will proceed with the log-transformation since it effectively compresses the range of TMM to better match the rest of the variables.
@@ -333,18 +335,22 @@ ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=g
 # Final Analysis Population
 
 ## Missing Values
+
 The complete data set nominally includes $`r nrow(data)`$ observations, but with $`r sum(is.na(data["lbs_gained"])&is.na(data["weightgain"]))`$ observations missing from the response variable. Since we are attempting to model this response, there is no meaningful way to impute the missing values, and they have been omitted. From there, missing values for TMM can be be calculated for rows where walk, moderate, and vigorous exercise times are known. Finally, the rest of the missing values should not be calculated since we cannot determine a structural reason for missingness, and the distributions were all fairly skewed ---so replacement with mean observations could bias our results. After omitting rows with missing values, we are left with $`r nrow(na.omit(p1.Data))`$ observations, which should be sufficient for estimating effects.
 
 ## Outliers
-In a data set this large, there are bound to be some extreme cases. It is more useful to try and explain how weight gain behaves for the *vast majority* of people than it is to try and explain every single observation. So, for good practice, we will ignore any observations that we deem too extreme. Figure 14 identifies some of the most extreme values for weight gain by gender, with 7 observations falling outside of the 95% IQR.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="We see here 7 observations that count as outliers in their group. Each of the values would have been outliers in nearly any other group as well,reassuring us that removing them is an appropriate step to take."}
+In a data set this large, there are bound to be some extreme cases. It is more useful to try and explain how weight gain behaves for the *vast majority* of people than it is to try and explain every single observation. So, for good practice, we will ignore any observations that we deem too extreme. Figure 14 identifies some of the most extreme values for weight gain by gender, with 8 observations falling outside of 1.5*IQR above and below the third and first quartiles, respectively.
+
+After the 8 extreme cases are removed, there remain two observations that qualify as outliers by the IQR rule (Figure 15). However, these two values (females gaining 40 and 42 pounds) would be well within the range of the IQR rule if they were in the "other" shift category. Because of this, removing these values feels like too aggressive of a maneuver at this juncture, so we will leave those two observations in.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="We see here 8 observations that count as outliers in their group. Each of the values would have been at least borderline outliers in any other group as well, reassuring us that removing them is appropriate."}
 p1.Data1 %>%
   group_by(shift) %>%
   mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
   ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
     geom_boxplot() +
-    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3, check_overlap = TRUE) +
   scale_color_manual(values  =  cb_palette[c(2,3)]) +
   labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
        subtitle = "Outliers labeled by their Pounds Gained",
@@ -353,7 +359,7 @@ p1.Data1 %>%
 ```
 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Only two outliers remain after removing the first seven. However, these would not be close to outliers if they fell into the category shift = `other`, enticing us to leave them in."}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Only two outliers remain after removing the first eight. However, these would not be outliers if they fell into the category shift = `other`, enticing us to leave them in."}
 p1.Data2 %>%
   group_by(shift) %>%
   mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
@@ -362,18 +368,19 @@ p1.Data2 %>%
     geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
   scale_color_manual(values  =  cb_palette[c(2,3)]) +
   labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
-       subtitle = "Outliers labeled by their Pounds Gained",
+       subtitle = "Initial outliers removed. New outliers labeled by their Pounds Gained",
        x= "Shift",
        y= "Weight Gain" )
 ```
 
-After the 7 extreme cases are removed, there are now two observations that qualify as outliers by the IQR rule (Figure 15). However, these two values (females gaining 40 and 42 pounds) would be well within the range of the IQR rule if they were in the "other" shift category. Because of this, removing these values feels like too aggressive a maneuver at this juncture, so we will leave those two observations in.
 
-\newpage
+
+
 # ZIP Model
-In attempting to model weight gain, numerous options are available. We could have modeled the response variable of pounds gained by using a variety of well-known parametric distributions used to model severity in the insurance world, such as the Gamma, Pareto, Weibull, Lognormal, Generalized Beta, or any other parametric distribution commonly used to model right-skewed continuous random variables. However, just knowing that weight gain in this scenario follows a common distribution doesn't provide us with any information as to what *drives* weight gain. An additional option of treating the response of weight gain as a censored version of normally-distributed weight change was also considered; however, the non-normality of pounds gained for those who did gain weight discouraged us from this (Figure 16). 
 
-Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the Poisson for determining the number of pounds gained once the threshold is crossed. We feel comfortable violating the assumption of discrete counts typically expected of a Poisson distribution since most responses were reported in integer values (those that were not were rounded for the analysis), and counting the number of pounds gained since the beginning of the study (i.e. over eight months) is a reasonable interpretation of the response. And the zero-inflation estimates can account for the respondents who did not gain weight.
+In attempting to model weight gain, numerous options are available. We could have modeled the response variable of pounds gained by using a variety of well-known parametric distributions that are used to model severity in the insurance world, such as the Gamma, Pareto, Weibull, Lognormal, Generalized Beta, or any other parametric distribution commonly used to model right-skewed continuous random variables. However, just knowing that weight gain in this scenario follows a common distribution doesn't provide us with any  information as to what *drives* weight gain. An additional option of treating the response of weight gain as a censored version of normally-distributed weight change was also considered; however, the non-normality of pounds gained for those who did gain weight discouraged us from this (Figure 16). 
+
+Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the Poisson for determining the number of pounds gained once the threshold is crossed. We feel comfortable violating the assumption of discrete counts typically expected of a Poisson distribution since most responses were reported in integer values (those that were not were rounded for the analysis), and counting the number of pounds gained since the beginning of the study (i.e. over a fixed eight-month period) is a reasonable interpretation of the response. The zero-inflation estimates can then account for the respondents who did not gain weight.
 
 ```{r, echo=F, warning = F, message = F, fig.cap= "The above histogram shows the densities of pounds gained for employees at the call center, while the overlayed density curve shows the emperical density curve of pounds gained amongst emplyees who reported gaining weight. The pounds gained have been uniformly jittered for the non-zero responses to smooth some peaks at multiples of 5. The high proportion of respondents who did not report gaining weight indicates that a higherarchical model differentiating between those who gained weight and those who did not may be appropriate. The long right tail of the density curve indicates that a Poisson GLM may be appropriate to model the pounds gained amongst those who reported weight gain."}
 
