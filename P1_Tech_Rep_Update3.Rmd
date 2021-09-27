@@ -1,0 +1,573 @@
+---
+title: "Effects of Work Shift and Total Excersize Time on Weight Gain"
+author: "Paul Hunt, Brandon Kill, Brendan Winters"
+date: "Submitted 9/26/2021"
+bibliography: P1_cite.bibtex
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/apa.csl
+indent: true
+output: 
+  pdf_document:
+    number_sections: true
+    extra_dependencies: ["dcolumn"]
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(readxl)
+library(ggplot2)
+library(dagitty)
+library(lavaan)
+library(ggdag)
+library(lme4)
+library(pscl)
+library(faraway)
+library(tidyverse)
+library(ggpubr)
+library(MASS)
+
+
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+data <- read_xlsx("Practicum 1 Data.xlsx")
+p1.Data <- data[c("Job", "dept", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig ex Time", "Walk ex Time", "Mod ex time", "Total_Met_Min")]
+names(p1.Data)[names(p1.Data)=="Vig ex Time"] <- "Vig_ex_Time"
+names(p1.Data)[names(p1.Data)=="Walk ex Time"] <- "Walk_ex_Time"
+names(p1.Data)[names(p1.Data)=="Mod ex time"] <- "Mod_ex_Time"
+
+p1.Data$Job  <- as.factor(p1.Data$Job)
+p1.Data$shift  <- factor(p1.Data$shift, levels = c("7am", "8am", "9am", "10am","11am","12pm","1pm","2pm", "other"))
+p1.Data$oshift <- unclass(p1.Data$shift)
+p1.Data$gender  <- as.factor(p1.Data$gender)
+p1.Data$dept  <- as.factor(p1.Data$dept)
+p1.Data$weightgain  <- as.factor(p1.Data$weightgain)
+
+p1.Data$Total_Met_Min <- 8*p1.Data$Vig_ex_Time + 4*p1.Data$Mod_ex_Time + 3.3*p1.Data$Walk_ex_Time
+p1.Data$lbs_gained[p1.Data$weightgain == "No"] <- 0
+p1.Data <- p1.Data[is.na(p1.Data$lbs_gained) == FALSE,]
+p1.Data$beg_weight <- p1.Data$bweight-p1.Data$lbs_gained
+
+p1.Data <- p1.Data[-c(1,2)]
+```
+
+# Abstract
+
+\begin{center}
+
+Our study examined 230 employees at a call center in the American South and their self-reported weight gain over a period of eight months. Our primary focus was determining how and to what extent Total Metabolic Minutes, an intensity-weighted measure of time spent exercising, and the employee's shift start time had on the amount of weight they gained in that span. Controlling for gender was key, as it had a substantial impact on how the other predictors behaved.  Since only weight *gain* was measured, employee weight change became censored at zero, so we used zero-inflated Poisson regression to model the number of pounds gained. Although the binomial portion of the model was unable to find significant predictors for whether or not an employee gained weight, once the employee did gain weight, the Poisson portion of the model did a nice job at modeling and predicting weight gain. Increasing Total Metabolic Minutes exercised and starting work at a later time (working a later shift) were both highly statistically significant and associated with lowering the expected weight gain for the employee. The decrease in expected weight gain associated with later shifts was even more pronounced for men than for women. However, the net effect of metabolic minutes on weight gain was lower for employees with later shifts, meaning working out did less for you if you started work later in the day. There very well may be biomedical/kinesiological theory about how working out at different times of the day can impact weight gain due to metabolic and/or circadian cycles, although we did not search for any such theory.
+
+\end{center}
+
+\newpage
+# Introduction
+Our task was to determine how time spent exercising (measured in Total Metabolic Minutes) and shift (time of day a person's job begins) impacted the amount of weight gained over an eight month period for employees at a call center in the American South. Out of over 1000 employees, 342 provided us with information on their weight gain, and of those, only 238 provided us with information on all of the predictors we felt were relevant for our study. Eight extreme values for weight gain were identified as outliers, and those cases were removed for the benefit of the study. 230 subjects were then used for the final analysis - 155 who gained weight and 80 who did not. Gender (152 female, 78 male) was used as a predictor in the study, as it had clear impact on the values of our predictors and of our response. Job and Department were excluded as variables, as all of the information contained in both of those variables are posited to be contained in the shift variable. Beginning weight of the participant and their age were also included as predictors since they had an effect on the time a subject spent exercising. Only one transformation of our predictors was used: the log of Total Metabolic Minutes.
+
+Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the poisson for determining the number of pounds gained once the threshold is crossed. We are well aware that weight gain is inherently a continuous random variable, and we are using two discrete variables (binomial, poisson) to model it. However, gaining weight or not can absolutely be considered a binomial process, and since the vast majority round their weight or weight change to the nearest whole pound, anyway (even at the doctor's office), modeling the number of pounds gained in a fixed time period as a poisson random variable does not feel inappropriate in this setting, especially since the shape of the distribution of pounds gained fits so well.  The ease of interpretation of the results of the analysis was also considered as a reason for choosing this method.
+
+Our study finds that the number of pounds gained was reliably modeled by a truncated poisson; however, no variables were able to significantly predict whether or not somebody gained weight (the binomial part of the model). If somebody did gain weight, however, we found that Total Metabolic Minutes, shift, and the interaction between them to be the three most significant predictors. We found that increasing total metabolic minutes did lower the expected number of pounds gained as anticipated, and having a later shift also lowered the expected number of pounds gained; however, the interaction between shift and total metabolic minutes indicated that the net effect of metabolic minutes on weight was less pronounced for employees with later shifts.  We also find that the benefits of lower average weight gain associated with a later shift is even more pronounced for males than females. In other words, out of all of the employees who do gain weight, weight gain is the least pronounced, on average, for those who exercise more, come into work at a later time, and identify as male.
+
+\newpage
+# Causal Inference for Model Selection
+
+
+
+In order to address the effects of shift time and exercise on weight gain with only observational data, we must first construct a theoretical causal model showing the hypothesized relationships between the two primary predictors, the response, and any potential confounding variables that we have measured.\\
+What follows is a list of the predictors and potential confounders under consideration with their hypothesized effects on weight gain and on the other predictors:
+
+\begin{itemize}
+\item {\bf Total Metabolic Minutes:} This variable represents total exercise time for respondents in an average week, weighted by the intensity of the exercise. We expect exercise to have a direct effect on weigh gain, most likely with an inverse relationship.
+
+\item {\bf Shift:} This variable indicates the shift in which respondents begin their work day. We expect shift to have an effect on total metabolic minutes, since workers may struggle to fit regular exercise into their daily routines depending on their work schedules. Additionally, we are interested in modeling any potential direct effect of shift on weight gain to see if the call center could implement some change to their schedules to facilitate better health.
+
+\item {\bf Age:} We expect the respondent's age to have some effect on total metabolic minutes, since people may find more vigorous exercise more difficult as they age. It may also affect the respondent's beginning weight. Additionally, we expect some direct effect of age on weight gain as metabolism changes with age.
+
+\item {\bf Gender:} The respondent's gender likely affects total metabolic minutes as men and women might tend to engage in different types of exercise on average, and we can expect beginning weight to be affected since men are heavier than women on average. It may also have an effect on weight gain, assuming that the is some difference between the metabolic processes of mean and women on average.
+
+\item {\bf Beginning Weight:} We can expect some influence of initial weight on total metabolic minutes, since the respondent's weight may inform us to their propensity to exercise. It may also impact weight gain, assuming that it serves as a proxy for overall health or innate metabolic levels. It also may just serve as measure of capacity to gain weight. The larger a person's natural frame, the more weight they can gain and carry at any time.
+
+\item {\bf Job and Department:} Employees typically apply for a job without consideration for which department of a corporation intends to hire them, so their job will determine their department. Shifts will be set depending on the nature of the job and on departmental policy. Since these call center jobs are all white-collar and service jobs, there is little reason to expect an effect on weight gain beyond the effect of the jobs on the respondants' work schedules.
+
+\item {\bf Walk, Moderate, and Vigorous Exercise Time:} These three variables are added together in a linear combination ($8\cdot \tt{Vigorous time}+4\cdot\tt{Moderate time}+3.3\cdot\tt{Walktime} $) to calculate total metabolic minutes, so the information contained within them is already included in a model with TMM.
+\end{itemize}
+
+These relationships can be illustrated in a Directed Acyclic Graph (DAG) with arrows indicating the direction of causation between the variables [@dagitty]. When there is a confounding variable influencing both one of the predictors and the response, the effect of that predictor must be conditional upon that confounder (i.e. it must be included in the regression model as an adjustment). When an additional variable only has a pathway through one of the predictors to the response, then its information is already contained within the predictor, and it should be excluded by the model [@ci]. Following these principles, and assuming our causal model is correctly specified, we find that our main-effects model for weight gain on work shift and TMM must also adjust for beginning weight, age, and gender.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap = "The causal model shown above indicates adjustments for age, beginning weight, and gender will be necessary to correctly estimate the effects of work shift and Total Metabolic Minutes"}
+CI.graph <- dagitty('dag {
+Job             [pos="0,1"]
+Dept.           [pos="1,1"]
+Walk_ET         [pos="3,1"]
+Mod._ET          [pos="4,1"]
+Vig._ET          [pos="5,1"]
+Shift           [pos="2,2"]
+TMM             [pos="4,2"]
+Age             [pos="4,3"]
+Gender          [pos="8,3"]
+BW              [pos="6,3"]
+Weight_Gain     [pos="3,4"]
+
+Job -> Dept. -> Shift
+Job -> Shift -> TMM
+Shift -> Weight_Gain 
+Walk_ET -> TMM
+Mod._ET -> TMM
+Vig._ET -> TMM -> Weight_Gain
+Age -> TMM
+Age -> Weight_Gain
+Age -> BW
+Gender -> TMM
+Gender -> Weight_Gain
+Gender -> BW
+BW -> Weight_Gain
+BW -> TMM
+}')
+
+ggdag(CI.graph) + theme_dag()+geom_dag_node(col = "gray", size=20) + geom_dag_text(col = "blue")+geom_dag_edges() + ggtitle("DAG of Causal Model")
+```
+
+
+
+
+\newpage
+# Exploratory Data Analysis and Transformations
+With the main-effects model broadly specified, we turn our attention to the question of whether or not our model may benefit from applying transformations to the predictors. In general, we want to ensure that our observations are roughly symmetrically distributed, but also to avoid unnecessary transformations that may hinder easy interpretation of the model's coefficient estimations. Our approach will depend on visual interpretation of histograms.
+
+The distribution of total metabolic minutes (Figure 1) is strongly right-skewed and evinces a clear need for transformation. The range of observations crosses several orders of magnitude, from 0 to well over 10,000, which implies that a natural logarithm would be an appropriate transformation. The log transformation was performed on TMM+1 to avoid cases of $\log(0)$ which is undefined. The resulting distribution is far less skewed, but is bi-modal with one peak at 0 and another around 7.5. despite the bi-modality, we will proceed with the log-transformation since it effectively compresses the range of TMM to better match the rest of the variables.
+
+For ease of interpretation, we have chosen to model shift as an ordinal variable, allowing us to analyze the effect of starting work earlier or later. This decision requires the assumption that "other" shifts are later than the given shifts, but this may not be unreasonable since most of the early hours of the day are covered by the given shifts. Most shifts start at 8 am, which skews the distribution somewhat, but the rest of the shifts are rather evenly dispersed, so we shall proceed without any farther transformations.
+
+Females outnumber males in our sample by at least 2 to 1, but the total counts for each are well over 50, giving a sufficient sample size to analyze.
+
+The distribution of ages is fairly right-skewed, but applying a log-transformation does little to reduce the skew. Since the ages do not cross an order of magnitude and the logarithm will not improve the model more than it will hinder direct interpretation, will have elected to use the untransformed ages in our model.
+
+The distribution of beginning weights is somewhat right-skewed, but not improved much by a log-transformation ---much like the ages. Again, there does not seem to be sufficient cause for transforming beginning weights in our model.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+# color blind pallet - we were told to use it in EDA
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+p1.Data1 <- na.omit(p1.Data)
+
+
+is_outlier <- function(x) {
+  return(x <= quantile(x, 0.25) - 1.5 * IQR(x) | x >= quantile(x, 0.75) + 1.5 * IQR(x))
+}
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data.out <- p1.Data1 %>%
+                  group_by(shift) %>%
+                  mutate(outlier = ifelse(is_outlier(lbs_gained), "Yes", "No"))
+
+p1.Data2 <- p1.Data.out %>%
+                filter(outlier == "No")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gg <- ggplot(p1.Data, aes(x = lbs_gained, y = ..density..)) + 
+  geom_histogram(bins = 14, fill = cb_palette[2], color = cb_palette[1]) + 
+  geom_density() +
+  labs(title = "Histogram of Pounds Gained")
+
+gg1 <- ggplot(p1.Data, aes(x = log(lbs_gained+1), y = ..density..)) + 
+  geom_histogram(bins = 14, fill = cb_palette[2], color = cb_palette[1]) + 
+  geom_density() +
+  labs(title = "Histogram of Log(Pounds Gained)")
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Total Metabolic Minutes is right-skewed and may benefit from a transformation"}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=Total_Met_Min, y=..density..))+
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2]) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Total Metabolic Minutes",
+       x = "TMM") +
+  facet_grid(.~gender)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="log(Tot_Met_Min + 1) used to avoid taking log(0)"}
+gg1 <- ggplot(p1.Data2, aes(x=log(Total_Met_Min+1), y=..density..))+
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2]) + 
+  geom_density(show.legend = FALSE) +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Total Metabolic Minutes)",
+       x = "Log of TMM" ) +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Number of employees in each shift displayed. May want to make into an ordinal variable, as 7am is objectively earlier than 8 am, etc."}
+ggplot(group_by(p1.Data2, gender), aes(x=shift)) +
+  geom_bar(color = cb_palette[1], fill = cb_palette[2]) + 
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Barplot of Shift",
+       subtitle = ,
+       caption = ) +
+  facet_grid(.~gender)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Number of employees identifying as each gender"}
+ggplot(p1.Data2, aes(x=gender)) +
+  geom_bar(color = cb_palette[1], fill = cb_palette[2]) + 
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Barplot of Gender",
+       x = "Gender")
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Age is also right-skewed and may benefit from a transformation"}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=Age, y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], binwidth = 4) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Age",
+       x = "Age") +
+  facet_grid(.~gender)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Slightly better, but not by much"}
+gg1 <- ggplot(group_by(p1.Data2, gender), aes(x = log(Age), y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Age)",
+       x= "Log of Age") +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Beginning Weight is slightly right-skewed and may benefit from a transformation"}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=beg_weight, y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Beginning Weight",
+       x = "Beginning Weight") +
+  facet_grid(.~gender)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Slightly better, but may have not been neccessary"}
+gg1 <- ggplot(group_by(p1.Data2, gender), aes(x=log(beg_weight), y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Beginning Weight)",
+       x = "Log of Beginning Weight") +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+
+\newpage
+# Checking for Interactions
+
+After performing a log-transformation on total metabolic minutes, the final step towards fully specifying our model is to decide whether or not to model interactions. We plotted scatter plots of pounds gained versus each variable by shift, and then by gender to check for potential interaction with shift and gender. If the slopes for different shifts or each gender were clearly distinct, then we included an interaction. Those two variables were chosen to analyze since they are the factors and if a health program were designed to target specific shifts or a specific gender then its effects could be predicted reasonable well.
+
+## Interaction between Predictors and Shift
+
+For all three plots (Figures 7-10), the slopes withing shifts were clearly different in both magnitude and direction, so interactions with shift are modeled for all three of TMM, age, and beginning weight.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot illustrates the correlation between weight gained (in pounds) against exercise time (in TMM), with lines of best fit for each shift. We see markedly different slops depending on the shift, so an interaction should be included in the model."}
+ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Total_Met_Min, y=lbs_gained, color=shift)) +geom_point()+
+  geom_smooth(method="lm", se= F) +
+  scale_color_manual(values  =  rep(cb_palette,2)) + 
+  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Shift",
+       subtitle = "Looking for interactions between Shift and Total Metabolic Minutes",
+       x = "Total Metabolic Minutes",
+       y = "Weight Gain")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot illustrates the correlation between weight gained (in pounds) against age (in years), with lines of best fit for each shift. We see different slops depending on the shift, so an interaction should be included in the model."}
+ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Age, y=lbs_gained, color=shift)) +geom_point()+
+  geom_smooth(method="lm", se= F) +
+  scale_color_manual(values  =  rep(cb_palette,2)) +
+  labs(title = "Pounds Gained vs. Age split by Shift",
+       subtitle = "Looking for interactions between Shift and Age",
+      x = "Age",
+      y= "Weight Gain")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot illustrates the correlation between weight gained (in pounds) against beginning weight (in pounds), with lines of best fit for each shift. We see different slops depending on the shift, so an interaction should be included in the model."}
+ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=beg_weight, y=lbs_gained, color=shift)) +geom_point()+
+  geom_smooth(method="lm", se= F) + 
+  scale_color_manual(values  =  rep(cb_palette,2)) +
+  labs(title = "Pounds Gained vs. Beginning Weight split by Shift",
+       subtitle = "Looking for interractions between Shift and Beginning Weight",
+       x = "Beginning Weight",
+       y= "Weight Gain")
+```
+
+## Interactions between Predictors and Gender
+
+Overall, the plots for interactions with gender (Figures 10-13) show less substantial divergence than we saw above for interactions with shift, but they still seem to be present with TMM, shift, and beginning weight. The interaction between TMM and gender seems to be that mean are more likely to gain less weight with more exercise than women. Likewise for shift, men seem to gain less weight with later shifts while women are not affected by shift changes alone. There does not seem to be any meaningful difference between men and women of different ages, as the slops are very close and essentially parallel. Regarding beginning weight, men appear to be more likely to gain weight when they start from a higher weight, while again women seem unaffected.
+
+```{r, echo=FALSE, warning=FALSE, fig.cap = "This plot illustrates the correlation between total metabolic minutes and pounds gained per individual. We do see a difference in slopes between males and females. For males we see a negative interaction between the two variables. As total metabolic minutes increase, pounds gained decreases as we expected. For females we see much more dispersion and as a cause the slope seems pretty close to zero."}
+## PAUL - should this be log(t_m_m +1)?
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
+  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Gender",
+       subtitle = "Looking for interaction between Gender and Total Metabolic Minutes",
+       x = "TMM",
+       y = "Weight Gain")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot illustrates the correlation between the start time of the individual's work shift and pounds gained per individual. The shift is treated as an ordinal variable for the line of best fit to be rendered. For males, we can see a negative slope indicating that the later the shift starts the less weight they will gain. For females, again, we see more dispersion and less of a correlation between shift and weight gain."}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
+  labs(title = "Pounds Gained vs. Shift split by Gender",
+       subtitle = "Looking for interaction between Gender and Shift",
+       y="Weight Gained",
+       x = "Shift")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot illustrates the correlation between the age of the individual and pounds gained per individual. Both males and females seem to have a pretty similar slope that is close to zero. This tells us that age by itself does not tell us much about weight gain for males or females and no interaction appears to exist."}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
+  labs(title = "Pounds Gained vs. Age split by Gender",
+       subtitle = "Looking for interactions between Gender and Age",
+       x = "Age",
+       y = "Weight Gain")
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="This plot is showing the correlation between an individual's body weight at the beginning of this study against how much weight they have gained at the end. Again we see a positive slope for males and a slope close to zero for females."}
+ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
+  labs(title = "Pounds Gained vs Beginning Weight split by Gender",
+       subtitle = "Looking for interaction between Gender and Beginning Weight",
+       x = "Beginning Weight",
+       y = "Weight Gain")
+```
+
+
+
+\newpage
+# Final Analysis Population
+
+## Missing Values
+The complete data set nominally includes $`r nrow(data)`$ observations, but with $`r sum(is.na(data["lbs_gained"])&is.na(data["weightgain"]))`$ observations missing from the response variable. Since we are attempting to model this response, there is no meaningful way to impute the missing values, and they have been omitted. From there, missing values for TMM can be be calculated for rows where walk, moderate, and vigorous exercise times are known. Finally, the rest of the missing values should not be calculated since we cannot determine a structural reason for missingness, and the distributions were all fairly skewed ---so replacement with mean observations could bias our results. After omitting rows with missing values, we are left with $`r nrow(na.omit(p1.Data))`$ observations, which should be sufficient for estimating effects.
+
+## Outliers
+In a data set this large, there are bound to be some extreme cases. It is more useful to try and explain how weight gain behaves for the *vast majority* of people than it is to try and explain every single observation. So, for good practice, we will ignore any observations that we deem too extreme.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="We see here 7 observations that count as outliers in their group. Each of the values would have been outliers in nearly any other group as well,reassuring us that removing them is an appropriate step to take."}
+p1.Data1 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette[c(2,3)]) +
+  labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
+       subtitle = "Outliers labeled by their Pounds Gained",
+       x= "Shift",
+       y= "Weight Gain")
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Only two outliers remain after removing the first seven. However, these would not be close to outliers if they fell into the category shift = `other`, enticing us to leave them in."}
+p1.Data2 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette[c(2,3)]) +
+  labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
+       subtitle = "Outliers labeled by their Pounds Gained",
+       x= "Shift",
+       y= "Weight Gain" )
+```
+
+After the six extreme cases are removed, there are now two observations that qualify as outliers by the IQR rule. However, these two values (females gaining 40 and 42 pounds) would be well within the range of the IQR rule if they were in the "other" shift category. Because of this, removing these values feels like too aggressive a maneuver at this juncture, so we will leave those two observations in.
+
+\newpage
+# ZIP Model
+In attempting to model weight gain, numerous options were debated. We could have taken the time to attempt to model the response variable of pounds gained by using a variety of well-known parametric distributions used to model severity in the insurance world, such as the Gamma, Pareto, Weibull, Lognormal, Generalized Beta, or any number of parametric distributions commonly used to model right-skewed continuous random variables. However, just knowing that weight gain in this scenario follows a common distribution doesn't provide us with any information as to what *drives* weight gain. An additional option of treating the response of weight gain as a normal censored version of weight change was also considered; however, the non-normality of pounds gained for those who did gain weight discouraged us from this. Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the poisson for determining the number of pounds gained once the threshold is crossed.
+
+```{r Make Jitter, echo=FALSE, message=FALSE, warning=FALSE}
+lbs_jitter <- vector(length = nrow(p1.Data1))
+set.seed(600)
+for (i in 1:length(lbs_jitter)) {
+  if (p1.Data1$lbs_gained[i] == 0) {
+    lbs_jitter[i] <- p1.Data1$lbs_gained[i]
+  }
+  else {
+    lbs_jitter[i] <- p1.Data1$lbs_gained[i] + runif(1,-2.5,2.5)
+  }
+}
+
+Data <- data.frame(cbind(p1.Data1, lbs_jitter))
+Data.gain <- Data[which(Data$weightgain=="Yes"),]
+```
+
+```{r Jitter Histogram, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(Data.gain, aes(x=round(lbs_jitter,0), y= ..density..))+
+	geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 15) +
+	ggtitle("Histogram of Pounds Gained for Those who Gained Weight") + 
+  xlab("Pounds Gained") + ylab("Density") +
+	labs(subtitle = "Random jitter added to account for people rounding weight gain to nearest 5 lbs") +
+  geom_density()
+```
+
+
+```{r Model Estimation, warning=T, echo=FALSE, message=FALSE, include= F}
+zipmod.ord <- zeroinfl(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data)
+summary(zipmod.ord)
+```
+
+
+## Regression Results:
+\begin{table}[htbp]
+\caption{Coefficient Estimates for a Zero-Inflated Poisson Model on the Full Data Set }
+\bigskip
+\newcommand\hd[1]{\multicolumn{1}{c}{\textit{#1}}}
+\begin{tabular}{l *{4}{D..{-1}l }} \hline\hline
+\multicolumn{5}{l}{Poisson Model with Log Link:}\\
+Variable                          & \hd{Coefficient} & Std. Error & \hd{\textit z}-Score & p-Value   \\ \hline 
+Intercept                         & 3.675              &0.298       &12.323             & 1.900    $\times 10^{-16}$\\
+Shift                             &-0.304              &0.056       &-5.429             & 5.670    $\times 10 ^{-8}$\\
+Log of Total Met Min              &-0.096              &0.018       &-5.207             & 1.920    $\times 10^{-7}$\\
+Male                              &-0.373              &0.292       &-1.276             & 0.202    \\
+Beginning weight                  &-0.000              &0.002       &-0.255             & 0.799    \\
+Age                               &-0.005              &0.002       &-2.271             & 0.023    \\
+Shift:log of Total Met Min        & 0.035              &0.005       & 6.650             & 2.944    $\times 10^{-11}$\\
+Shift:beg weight                  & 0.0004             &0.000       & 1.802             & 0.072    \\
+Shift:Male                        &-0.113              &0.024       &-4.626             & 3.720    $\times 10^{-6}$\\
+Male:log of Total Met Min         &-0.038              &0.017       &-2.231             & 0.026    \\
+Beginning Weight:Male             & 0.005              &0.001       & 3.739             & 1.840    $\times 10^{-4}$\\ \hline
+\multicolumn{5}{l}{Zero-Inflation Binomial Coefficients with Logit Link:}\\
+Intercept                         & -0.570      & 1.951     & -0.292 &  0.770 \\
+Shift                             & -0.051      & 0.442     & -0.115 &  0.909 \\
+Log of Total Met Min              &  0.005      & 0.117     &  0.041 &  0.967 \\
+Male                              & -0.197      & 1.713     & -0.115 &  0.909 \\
+Beginning weight                  &  0.001      & 0.012     &  0.046 &  0.963 \\
+Age                               & -0.007      & 0.015     & -0.449 &  0.654 \\
+Shift:log of Total Met Min        & -0.028      & 0.029     & -0.965 &  0.334 \\
+Shift:beg weight                  &  0.001      & 0.003     &  0.275 &  0.783 \\
+Shift:Male                        & -0.047      & 0.176     & -0.268 &  0.789 \\
+Male:log of Total Met Min         &  0.096      & 0.120     &  0.797 &  0.425 \\
+Beginning Weight:Male             &  0.002      & 0.008     &  0.194 &  0.846 \\ \hline
+Log-likelihood:& -1115 & on 22 Degrees of freedom
+\end{tabular}
+\end{table}
+
+
+
+```{r Diagnostic Plots, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data.pois <- filter(p1.Data, lbs_gained > 0)
+mod1.pois <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age,data = p1.Data, family = "poisson")
+```
+
+
+```{r , warning=T, echo=FALSE, message=FALSE, include=F}
+zipmod.ord2 <- zeroinfl(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age,data = p1.Data2)
+summary(zipmod.ord2)
+```
+
+\begin{table}[htbp]
+\caption{Coefficient Estimates for a Zero-Inflated Poisson Model without Outliers }
+\bigskip
+\begin{tabular}{l *{4}{D..{-1}l }} \hline\hline
+\multicolumn{5}{l}{Poisson Model with Log Link:}\\
+Variable                          & \hd{Coefficient} & Std. Error & \hd{\textit z}-Score & p-Value   \\ \hline 
+Intercept                         & 3.147             &0.298       &0.329            &  < 2.0  $\times 10^{-16}$\\
+Shift                             &-0.356             &0.056       &0.072            &   6.60  $\times 10 ^{-7}$\\
+Log of Total Met Min              &-0.145             &0.018       &0.025            &   3.91    $\times 10^{-9}$\\
+Male                              &-0.432             &0.292       &0.319            &  0.175  \\
+Beginning weight                  & 0.004             &0.002       &0.002            &  0.036  \\
+Age                               &-0.001             &0.002       &0.002            &  0.680  \\
+Shift:log of Total Met Min        & 0.055             &0.005       &0.008            & 2.81  $\times 10^{-13}$\\
+Shift:beg weight                  &-0.0001            &0.000       &0.0002           &  0.415  \\
+Shift:Male                        &-0.133             &0.024       &0.028            & 1.42  $\times 10^{-6}$\\
+Male:log of Total Met Min         & 0.015             &0.017       &0.021            &  0.486  \\
+Beginning Weight:Male             & 0.004             &0.001       &0.002            &  0.007  \\ \hline
+\multicolumn{5}{l}{Zero-Inflation Binomial Coefficients with Logit Link:}\\
+Intercept                         & -0.269     & 2.128    & -0.126 &  0.899 \\
+Shift                             &  0.028     & 0.487    &  0.057 &  0.954 \\
+Log of Total Met Min              &  0.057     & 0.140    &  0.406 &  0.685 \\
+Male                              & -0.372     & 1.768    & -0.210 &  0.833 \\
+Beginning weight                  & -0.003     & 0.013    & -0.220 &  0.826 \\
+Age                               & -0.012     & 0.017    & -0.687 &  0.492 \\
+Shift:log of Total Met Min        & -0.048     & 0.038    & -1.282 &  0.200 \\
+Shift:beg weight                  &  0.001     & 0.003    &  0.408 &  0.683 \\
+Shift:Male                        & -0.033     & 0.196    & -0.169 &  0.866 \\
+Male:log of Total Met Min         &  0.061     & 0.130    &  0.469 &  0.639 \\
+Beginning Weight:Male             &  0.004     & 0.009    &  0.478 &  0.633 \\ \hline
+
+\end{tabular}
+\end{table}
+
+## Poisson Diagonistics
+```{r Diagnostic Plots 2, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data3 <- filter(p1.Data2, lbs_gained > 0)
+zipmod.ord3 <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data3, family = "poisson")
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+par(mfrow = c(1,2))
+plot(log(fitted(mod1.pois)), log((p1.Data.pois$lbs_gained-fitted(mod1.pois))^2),
+     xlab=expression(hat(mu)[i]),
+     ylab=expression((y[i]-hat(mu)[i])^2), sub = "With Outliers",
+     ylim = c(-8,8)); abline(0,1)
+
+plot(log(fitted(zipmod.ord3)), log((p1.Data3$lbs_gained-fitted(zipmod.ord3))^2),
+     xlab=expression(hat(mu)[i]),
+     ylab=expression((y[i]-hat(mu)[i])^2), sub = "Without Outliers",
+     ylim = c(-8,8)); abline(0,1)
+
+mtext("Estimated Variance vs. Estimated Mean - Poisson Models", side = 3, line = -1.5, outer = TRUE)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+par(mfrow = c(1,2))
+halfnorm(residuals(mod1.pois), sub = "With Outliers")
+halfnorm(residuals(zipmod.ord3), sub = "Without Outliers")
+mtext("Half-Normal QQ Plots of Residuals - Poisson Models", side = 3, line = -1.5, outer = TRUE)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+par(mfrow = c(1,2))
+plot(fitted(mod1.pois), resid(mod1.pois),
+     ylab="Residuals",
+     xlab="Fitted Values",
+     sub = "With Outliers",
+     ylim = c(-10,10)); abline(0,0)
+
+plot(fitted(zipmod.ord3), resid(zipmod.ord3),
+     ylab="Residuals",
+     xlab="Fitted Values", 
+     sub="Without Outliers",
+     ylim = c(-10,10)); abline(0,0)
+mtext("Residual Plots - Poisson Models", side = 3, line = -1.5, outer = TRUE)
+```
+
+
+
+
+
+
+\newpage
+# References

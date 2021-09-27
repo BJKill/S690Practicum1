@@ -160,6 +160,7 @@ What follows is a list of the predictors under consideration and their hypothesi
 \item \bf{Beginning Weight:} We can expect some influence of initial weight on total metabolic minutes, since the respondent's weight may inform us to their propensity to exercise. It may also impact weight gain, assuming that it serves as a proxy for overall health or innate metabolic levels.
 \end{itemize}
 
+
 ## Plotting the Predictors on Weight Gain
 
 These plots 
@@ -177,11 +178,11 @@ ggplot(p1.Data3, aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
 
 ```{r}
 ggplot(p1.Data3, aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm") +
+  geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  cb_palette[2:3])
 
 ggplot(p1.Data3, aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
-  geom_smooth(method="lm") +
+  geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  cb_palette[2:3])
 ```
 
@@ -189,13 +190,13 @@ ggplot(p1.Data3, aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
 
 ```{r}
 ggplot(p1.Data3, aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm") +
+  geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  cb_palette[2:3])
 ```
 
 ## ZIP Model
 ```{r Model Estimation}
-zipmod <- zeroinfl(round(lbs_gained,0)~oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data3)
+zipmod <- zeroinfl(round(lbs_gained,0)~oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age+, data = p1.Data2)
 summary(zipmod)
 ```
 
@@ -215,4 +216,16 @@ plot(fitted(zipmod), resid(zipmod),
      main = "Residual Plot")
 abline(0,0)
 ```
+
+```{r}
+ggplot(p1.Data3, aes(x=Total_Met_Min, y = ..density..)) + geom_histogram() +
+  geom_density() +
+```
+
+
+
+
+
+
+
 

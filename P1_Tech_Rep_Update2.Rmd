@@ -5,7 +5,26 @@ date: "9/25/2021"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+# ABSTRACT GOES HERE, CENTERED
+
+\newpage
+# Introduction
+Our task was to determine how time spent exercising (measured in Total Metabolic Minutes) and shift (time of day a person's job begins) impacted the amount of weight gained over an eight month period for employees at a call center in the American South. Out of over 1000 employees, 342 provided us with information on their weight gain, and of those, only 219 provided us with information on all of the predictors we felt were relevant for our study. Six extreme values for weight gain were identified as outliers, and those cases were removed for the benefit of the study. 213 subjects were used for the final analysis - 141 females and 72 males. Gender was used as a predictor in the study, as it had clear impact on the values of our predictors and of our response. Job and Department were excluded as variables, as all of the information contained in both of those variables are posited to be contained in the shift variable. Beginning weight of the participant and their age were also included as predictors since they had an effect on the time a subject spent exercising. Only one transformation of our predictors was used: the log of Total Metabolic Minutes.
+
+In attempting to model weight gain, numerous options were debated. We could have taken the time to attempt and model the response variable of pounds gained by using a variety of well-known parametric distributions used to model severity in the insurance world, such as the Gamma, Pareto, Weibull, Lognormal, Generalized Beta, or any number of parametric distributions commonly used to model right-skewed continuous random variables. However, just knowing that weight gain in this scenario follows a common distribution doesn't provide us with any information as to what *drives* weight gain. An additional option of treating the response of weight gain as a truncated version of weight change was also considered; however, the non-normality of pounds gained for those who did gain weight discouraged us from this. 
+
+Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the poisson for determining the number of pounds gained once the threshold is crossed. We are well aware that weight gain is inherently a continuous random variable, and we are using two discrete variables (binomial, poisson) to model it. However, gaining weight or not can absolutely be considered a binomial process, and since the vast majority round their weight or weight change to the nearest whole pound, anyway (even at the doctor's office), modeling the number of pounds gained in a fixed time period as a poisson random variable does not feel inappropriate in this setting, especially since the shape of the distribution of pounds gained fits so well.  The ease of interpretation of the results of the analysis was also considered as a reason for choosing this method.
+
+Our study finds that the number of pounds gained was reliably modeled by a truncated poisson; however, no variables were able to significantly predict whether or not somebody gained weight (the binomial part of the model). If somebody did gain weight, however, we found that Total Metabolic Minutes, shift, and the interaction between them to be the three most significant predictors. We found that increasing total metabolic minutes by 1% decreases the expected weight gain 
+
+```{r}
+zimpod.ord4 <- zeroinfl(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+beg_weight*gender+Age, data = p1.Data2)
+
+summary(zimpod.ord4)
+```
+
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 library(readxl)
 library(ggplot2)
@@ -14,6 +33,13 @@ library(lavaan)
 library(lme4)
 library(pscl)
 library(faraway)
+library(tidyverse)
+library(ggpubr)
+library(pscl)
+library(lme4)
+library(MASS)
+
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 data <- read_xlsx("Practicum 1 Data.xlsx")
 p1.Data <- data[c("Job", "dept", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig ex Time", "Walk ex Time", "Mod ex time", "Total_Met_Min")]
@@ -31,11 +57,92 @@ p1.Data$weightgain  <- as.factor(p1.Data$weightgain)
 p1.Data$Total_Met_Min <- 8*p1.Data$Vig_ex_Time + 4*p1.Data$Mod_ex_Time + 3.3*p1.Data$Walk_ex_Time
 p1.Data$lbs_gained[p1.Data$weightgain == "No"] <- 0
 p1.Data <- p1.Data[is.na(p1.Data$lbs_gained) == FALSE,]
-p1.Data$beg_weight <- p1.Data$bweight-p1.Data$lbs_gained 
+p1.Data$beg_weight <- p1.Data$bweight-p1.Data$lbs_gained
 ```
 
-## Causal Inference
+# Removing Outliers
+In a data set this large, there are bound to be some extreme cases. It is more useful to try and explain how weight gain behaves for the *vast majority* of people than it is to try and explain every single observation. So, for good practice, we will ignore any observations that we deem too extreme.
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+# color blind pallet - we were told to use it in EDA
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+
+
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+```
+
 ```{r}
+
+```
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data1 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette[c(2,3)]) +
+  labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
+       subtitle = "Outliers labeled by their Pounds Gained",
+       caption = "We see here 6 observations that count as outliers in their group. Each of
+       the values would have been outliers in nearly any other group as well,
+       reassuring us that removing them is an appropriate step to take.")
+```
+As shift and gender are both predictors in the model, we felt it appropriate to split weight gain by both and see if we had any extreme values within the smaller groups.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data.out <- p1.Data1 %>%
+                  group_by(shift) %>%
+                  mutate(outlier = ifelse(is_outlier(lbs_gained), "Yes", "No"))
+
+p1.Data2 <- p1.Data.out %>%
+                filter(outlier == "No")
+```
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data2 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette[c(2,3)]) +
+  labs(title = "Side-by-Side Boxplot of Pounds Gained vs. Shift split by Gender",
+       subtitle = "Outliers labeled by their Pounds Gained",
+       caption = "Only two outliers remain after removing the first six. However, these would not be
+       outliers if they fell into the category shift = `other`, enticing us to leave them in.")
+```
+
+After the six extreme cases are removed, there are now two observations that qualify as outliers by the IQR rule. However, these two values (females gaining 40 and 42 pounds) would be well within the range of the IQR rule if they were in the "other" shift category. Because of this, removing these values feels like too aggressive of a maneuver at this juncture, so we will leave those two observations in.
+
+
+```{r}
+gg <- ggplot(p1.Data, aes(x = lbs_gained, y = ..density..)) + 
+  geom_histogram(bins = 14, fill = cb_palette[2], color = cb_palette[1]) + 
+  geom_density() +
+  labs(title = "Histogram of Pounds Gained")
+
+gg1 <- ggplot(p1.Data, aes(x = log(lbs_gained+1), y = ..density..)) + 
+  geom_histogram(bins = 14, fill = cb_palette[2], color = cb_palette[1]) + 
+  geom_density() +
+  labs(title = "Histogram of Log(Pounds Gained)")
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+
+# Causal Inference
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 CI.graph <- dagitty('dag {
 Job             [pos="0,1"]
 Dept.           [pos="1,1"]
@@ -81,83 +188,205 @@ What follows is a list of the predictors under consideration and their hypothesi
 \item \bf{Beginning Weight:} We can expect some influence of initial weight on total metabolic minutes, since the respondent's weight may inform us to their propensity to exercise. It may also impact weight gain, assuming that it serves as a proxy for overall health or innate metabolic levels.
 \end{itemize}
 
-## Thinking about Transformation
-```{r}
-ggplot(p1.Data, aes(x=Total_Met_Min, y=..density..))+geom_histogram()
-ggplot(p1.Data, aes(x=log(Total_Met_Min+1), y=..density..))+geom_histogram()+geom_density()
+# Thinking about Transformation - Exploratory Data Analysis
+
+## Gender
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(p1.Data2, aes(x=gender)) +
+  geom_bar(color = cb_palette[1], fill = cb_palette[2]) + 
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Barplot of Gender",
+       subtitle = "Number of employees identifying as each gender",
+       caption = "We see here that there are around twice as many females in the study as there are males.
+       The sample sizes are both well over 50, giving us enough data for reliable inference.")
+```
+
+## Total Metabolic Minutes
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=Total_Met_Min, y=..density..))+
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2]) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Total Metabolic Minutes",
+       subtitle = "Total Metabolic Minutes is right-skewed and may benefit from a transformation") +
+  facet_grid(.~gender)
+
+gg1 <- ggplot(p1.Data2, aes(x=log(Total_Met_Min+1), y=..density..))+
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2]) + 
+  geom_density(show.legend = FALSE) +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Total Metabolic Minutes)",
+       subtitle = "Much better. easier to see people who didn't exercise",
+       caption= "As a standard practice, log(Total Metabolic Minutes + 1) used to avoid taking log(0)") +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+## Shift
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(group_by(p1.Data2, gender), aes(x=shift)) +
+  geom_bar(color = cb_palette[1], fill = cb_palette[2]) + 
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Barplot of Shift",
+       subtitle = "Number of employees in each shift displayed",
+       caption = "We may want to make shift into an ordinal variable, as 7am is objectively earlier than 8 am, etc.") +
+  facet_grid(.~gender)
+```
+
+## Age
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=Age, y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], binwidth = 4) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Age",
+       subtitle = "Age is also right-skewed and may benefit from a transformation") +
+  facet_grid(.~gender)
+
+
+gg1 <- ggplot(group_by(p1.Data2, gender), aes(x = log(Age), y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Age)",
+       subtitle = "Slightly better, but not by much") +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
+```
+
+## Beginning Weight
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gg <- ggplot(group_by(p1.Data2, gender), aes(x=beg_weight, y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of Beginning Weight",
+       subtitle = "Beginning Weight is slightly right-skewed and may benefit from a transformation") +
+  facet_grid(.~gender)
+
+gg1 <- ggplot(group_by(p1.Data2, gender), aes(x=log(beg_weight), y = ..density..)) +
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
+  geom_density() +
+  scale_color_manual(values  =  cb_palette) +
+  labs(title = "Histogram of log(Beginning Weight)",
+       subtitle = "Slightly better, but may have not been neccessary") +
+  facet_grid(.~gender)
+
+ggarrange(gg, gg1, nrow = 2)
 ```
 
 
-## Checking for Interactions
-### Interaction between Predictors and Shift
-```{r}
-ggplot(p1.Data, aes(x=shift, y=lbs_gained)) +geom_boxplot()
-anova(lm(lbs_gained~shift, data= p1.Data))
+# Checking for Interactions
+## Interaction between Predictors and Shift
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(p1.Data, aes(x=shift, y=lbs_gained, color = shift)) +geom_boxplot() +
+  scale_color_manual(values  =  rep(cb_palette,2)) +
+  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Shift")
 
 ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Total_Met_Min, y=lbs_gained, color=shift)) +geom_point()+
-  geom_smooth(method="lm", se= F)
+  geom_smooth(method="lm", se= F) +
+  scale_color_manual(values  =  rep(cb_palette,2)) + 
+  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Shift",
+       subtitle = "Looking for interactions between Shift and Total Metabolic Minutes",
+       caption = "EXPLAIN WHAT WE'RE SEEING THOROUGHLY HERE")
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Age, y=lbs_gained, color=shift)) +geom_point()+
-  geom_smooth(method="lm", se= F)
+  geom_smooth(method="lm", se= F) +
+  scale_color_manual(values  =  rep(cb_palette,2)) +
+  labs(title = "Pounds Gained vs. Age split by Shift",
+       subtitle = "Looking for interactions between Shift and Age",
+       caption = "EXPLAIN THOROUGHLY HERE")
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=beg_weight, y=lbs_gained, color=shift)) +geom_point()+
-  geom_smooth(method="lm", se= F)
+  geom_smooth(method="lm", se= F) + 
+  scale_color_manual(values  =  rep(cb_palette,2)) +
+  labs(title = "Pounds Gained vs. Beginning Weight split by Shift",
+       subtitle = "Looking for interractions between Shift and Beginning Weight",
+       caption = "EXPLAIN THOROUGHLY HERE")
 ```
 
 ## Interactions between Predictors and Gender
 
 These plots 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+## PAUL - should this be log(t_m_m +1)?
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
+  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Gender",
+       subtitle = "Looking for interaction between Gender and Total Metabolic Minutes",
+       caption = "EXPLAIN")
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
+  labs(title = "Pounds Gained vs. Shift split by Gender",
+       subtitle = "Looking for interaction between Gender and Shift
+Shift converted to an ordinal variable for best fit calculations",
+       caption = "EXPLAIN")
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
+  labs(title = "Pounds Gained vs. Age split by Gender",
+       subtitle = "Looking for interactions between Gender and Age",
+       caption = "EXPLAIN - slopes about same, no interaction")
 
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=beg_weight, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
+  labs(title = "Beginning Weight vs. Age split by Gender",
+       subtitle = "Looking for interaction between Gender and Age on Beginning Weight???",
+       caption = "EXPLAIN")
 ```
 
 
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
+  labs(title = "Pounds Gained vs Beginning Weight split by Gender",
+       subtitle = "Looking for interaction between Gender and Beginning Weight",
+       caption = "EXPLAIN")
 ```
 
 ## ZIP Model
-```{r Model Estimation, warning=T}
-zipmod.ord <- zeroinfl(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = na.omit(p1.Data))
+```{r Model Estimation, warning=T, echo=FALSE, message=FALSE}
+zipmod.ord <- zeroinfl(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data2)
 summary(zipmod.ord)
-
 ```
 
 Regression Results:
 
 
-```{r Diagnostic Plots}
-plot(log(fitted(zipmod.ord)), log((na.omit(p1.Data)$lbs_gained-fitted(zipmod.ord))^2),
+```{r Diagnostic Plots, echo=FALSE, message=FALSE, warning=FALSE}
+p1.Data3 <- filter(p1.Data2, lbs_gained > 0)
+zipmod.ord3 <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_weight+oshift*gender+log(Total_Met_Min+1)*gender+beg_weight*gender+Age, data = p1.Data3, family = "poisson")
+summary(zipmod.ord3)
+
+plot(log(fitted(zipmod.ord3)), log((p1.Data3$lbs_gained-fitted(zipmod.ord3))^2),
      xlab=expression(hat(mu)[i]),
      ylab=expression((y[i]-hat(mu)[i])^2),
      main = "Estimated Variance vs. Estimated Mean")
 abline(0,1)
 
-halfnorm(residuals(zipmod.ord), main = "Half-Normal QQ Plot of Residuals")
+halfnorm(residuals(zipmod.ord3), main = "Half-Normal QQ Plot of Residuals")
 
-plot(fitted(zipmod.ord), resid(zipmod.ord),
+plot(fitted(zipmod.ord3), resid(zipmod.ord3),
      ylab="Residuals",
      xlab="Fitted Values",
      main = "Residual Plot")
+abline(0,0)
 ```
 

@@ -14,6 +14,12 @@ library(lavaan)
 library(lme4)
 library(pscl)
 library(faraway)
+library(alr4)
+library(censReg)
+library(ggpubr)
+library(tidyverse)
+
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 data <- read_xlsx("Practicum 1 Data.xlsx")
 p1.Data <- data[c("Job", "dept", "shift", "gender", "Age", "height", "weightgain", "lbs_gained", "bweight", "BMI", "Vig ex Time", "Walk ex Time", "Mod ex time", "Total_Met_Min")]
@@ -69,30 +75,84 @@ ggplot(p1.Data, aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()
 ```
 
 ```{r}
-ggplot(p1.Data, aes(x=Age, y=lbs_gained, color=gender)) +geom_point()
+gg1 <- ggplot(na.omit(p1.Data), aes(x=Age, y=lbs_gained, color=gender)) + geom_point()
+gg2 <- ggplot(na.omit(p1.Data), aes(x=Age, y=lbs_gained, color=gender)) + geom_boxplot()
+
 ```
 
 ```{r}
-ggplot(p1.Data, aes(x=shift, y=lbs_gained, color=gender)) +geom_point()
+library(tidyverse)
+
+# color blind pallet - we were told to use it in EDA
+cb_palette = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+ggplot(na.omit(p1.Data), aes(x=shift, y=lbs_gained, color=gender)) + geom_boxplot() +
+  scale_color_manual(values  =  cb_palette)
+
+p1.Data1 <- na.omit(p1.Data)
+
+  
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+p1.Data1 %>%
+  group_by(shift) %>%
+  mutate(outlier = ifelse(is_outlier(lbs_gained), lbs_gained, as.numeric(NA))) %>%
+  ggplot(., aes(x = shift, y = lbs_gained, color = gender)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) +
+  scale_color_manual(values  =  cb_palette)
+
+p1.Data.out <- p1.Data1 %>%
+                  group_by(shift) %>%
+                  mutate(outlier = ifelse(is_outlier(lbs_gained), "Yes", "No"))
+p1.Data2 <- p1.Data.out %>%
+                filter(outlier == "No")
 ```
 
 ```{r}
-ggplot(p1.Data, aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()
+ggplot(p1.Data2, aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()
 ```
 
 ## ZIP Model
 ```{r Model Estimation}
-zipmod <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+beg_weight*gender+Age*gender, data = na.omit(p1.Data))
+zipmod <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+beg_weight*gender+Age*gender, data = p1.Data1)
+zipmod2 <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+beg_weight*gender+Age*gender, data = p1.Data2)
+zipmod3 <- zeroinfl(round(lbs_gained,0)~oshift+I(Total_Met_Min/100)+beg_weight*gender+Age*gender, data = p1.Data3)
 summary(zipmod)
+summary(zipmod2)
+summary(zipmod3)
 ```
 
 ```{r Diagnostic Plots}
-plot(log(fitted(zipmod)), log((na.omit(p1.Data)$lbs_gained-fitted(zipmod))^2),
+plot(log(fitted(zipmod2)), log((p1.Data2$lbs_gained-fitted(zipmod2))^2),
      xlab=expression(hat(mu)[i]),
      ylab=expression((y[i]-hat(mu)[i])^2),
      main = "Estimated Variance vs. Estimated Mean")
 abline(0,1)
-halfnorm(residuals(zipmod))
-plot( fitted(zipmod), resid(zipmod))
+halfnorm(residuals(zipmod2))
+plot( fitted(zipmod2), resid(zipmod2))
+abline(0,0)
 ```
+
+# Results
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
