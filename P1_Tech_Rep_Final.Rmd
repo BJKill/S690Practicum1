@@ -385,6 +385,7 @@ lbs_jitter[p1.Data$weightgain=="Yes"] <- lbs_jitter[p1.Data$weightgain=="Yes"] +
 ggplot(data.frame(lbs_jitter), aes(x=round(lbs_jitter,0),y= ..density..))+
   geom_histogram(color = cb_palette[1], fill = cb_palette[2], binwidth = 2) +
   ggtitle("Histogram of Pounds Gained") + xlab("Pounds Gained") + ylab("Density") +
+  labs(subtitle = "Density curve fitted to weight-gainers only") +
   geom_density(data = p1.Data[p1.Data$weightgain == "Yes",], aes(x=lbs_gained))
 ```
 
