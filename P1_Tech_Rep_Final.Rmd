@@ -375,16 +375,16 @@ In attempting to model weight gain, numerous options are available. We could hav
 
 Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the Poisson for determining the number of pounds gained once the threshold is crossed. We feel comfortable violating the assumption of discrete counts typically expected of a Poisson distribution since most responses were reported in integer values (those that were not were rounded for the analysis), and counting the number of pounds gained since the beginning of the study (i.e. over eight months) is a reasonable interpretation of the response. And the zero-inflation estimates can account for the respondents who did not gain weight.
 
-```{r, echo=F, warning = F, message = F, fig.cap= "The above histogram shows the relative frequencies of pounds gained for employees at the call center, while the overlayed density curve shows the emperical density curve of pounds gained amongst emplyees who reported gaining weight. The pounds gained have been uniformly jittered for the non-zero responses to smooth some peaks at multiples of 5. The high proportion of respondents who did not report gaining weight indicates that a higherarchical model differentiating between those who gained weight and those who did not may be appropriate. The long right tail of the density curve indicates that a Poisson GLM may be appropriate to model the pounds gained amongst those who reported weight gain."}
+```{r, echo=F, warning = F, message = F, fig.cap= "The above histogram shows the densities of pounds gained for employees at the call center, while the overlayed density curve shows the emperical density curve of pounds gained amongst emplyees who reported gaining weight. The pounds gained have been uniformly jittered for the non-zero responses to smooth some peaks at multiples of 5. The high proportion of respondents who did not report gaining weight indicates that a higherarchical model differentiating between those who gained weight and those who did not may be appropriate. The long right tail of the density curve indicates that a Poisson GLM may be appropriate to model the pounds gained amongst those who reported weight gain."}
 
-set.seed(691)
-jitter     <- runif(length(p1.Data$lbs_gained[p1.Data$weightgain=="Yes"]), -2.5, 2.5)
+set.seed(1)
+jitter     <- runif(length(p1.Data$lbs_gained[p1.Data$weightgain=="Yes"]), -5, 5)
 lbs_jitter <- p1.Data$lbs_gained
 lbs_jitter[p1.Data$weightgain=="Yes"] <- lbs_jitter[p1.Data$weightgain=="Yes"] + jitter
   
-ggplot(data.frame(lbs_jitter), aes(x=lbs_jitter,y= ..density..))+
-  geom_histogram(color = cb_palette[1], fill = cb_palette[2]) +
-  ggtitle("Histogram of Pounds Gained") + xlab("Pounds Gained") + ylab("Frequency") +
+ggplot(data.frame(lbs_jitter), aes(x=round(lbs_jitter,0),y= ..density..))+
+  geom_histogram(color = cb_palette[1], fill = cb_palette[2], binwidth = 2) +
+  ggtitle("Histogram of Pounds Gained") + xlab("Pounds Gained") + ylab("Density") +
   geom_density(data = p1.Data[p1.Data$weightgain == "Yes",], aes(x=lbs_gained))
 ```
 
