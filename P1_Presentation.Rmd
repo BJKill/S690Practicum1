@@ -94,8 +94,8 @@ zipmod.ord3 <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_we
 \begin{block}{Q1: What is the effect of exercise time on weight gain?}
 \begin{itemize}
 
-\item The overall effect is \alert{negative}.\\
-\item This negative effect is \alert{weaker} with later shifts.
+\item Overall effect is \alert{negative}\\
+\item Negative effect is \alert{weaker} with later shifts
 
 \end{itemize}
 \end{block}
@@ -103,8 +103,8 @@ zipmod.ord3 <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_we
 \begin{block}{Q2: What is the effect of shift times (earlier to later) on weight gain?}
 \begin{itemize}
 
-\item The overall effect is \alert{negative}.\\
-\item This negative effect is \alert{stronger} in men.
+\item Overall effect is \alert{negative}\\
+\item Negative effect is \alert{stronger} in men
 
 \end{itemize}
 \end{block}
@@ -113,13 +113,12 @@ zipmod.ord3 <- glm(round(lbs_gained,0)~oshift:log(Total_Met_Min+1)+oshift:beg_we
 
 \begin{alertblock}{Response: Weight Gained}
 \begin{itemize}
-\item Treated as a count of pounds gained over 8 months.
-\item We distinguish between those who gained weight and those who did not (0 lbs gained).
+\item Treat as a count of pounds gained over an 8 month period
+\item Distinguish between those who gained weight and those who did not
 \end{itemize}
 \end{alertblock}
 
-```{r, echo=F, warning = F, message = F, fig.height= 2, fig.width=4, fig.cap= "We can think of Pounds gained as a Poisson random variable with an inflated zero count."}
-
+```{r, echo=F, warning = F, message = F, fig.height= 2.5, fig.width=5}
 set.seed(691)
 jitter     <- runif(length(p1.Data$lbs_gained[p1.Data$weightgain=="Yes"]), -2.5, 2.5)
 lbs_jitter <- p1.Data$lbs_gained
@@ -127,22 +126,25 @@ lbs_jitter[p1.Data$weightgain=="Yes"] <- lbs_jitter[p1.Data$weightgain=="Yes"] +
   
 ggplot(data.frame(lbs_jitter), aes(x=lbs_jitter,y= ..density..))+
   geom_histogram(color = cb_palette[1], fill = cb_palette[2]) +
-  ggtitle("Histogram of Pounds Gained") + xlab("Pounds Gained") + ylab("Frequency") +
-  geom_density(data = p1.Data[p1.Data$weightgain == "Yes",], aes(x=lbs_gained))
+  ggtitle("Histogram of Pounds Gained") + 
+  xlab("Pounds Gained") + ylab("Frequency") +   
+  geom_density(data = p1.Data[p1.Data$weightgain == "Yes",], aes(x=lbs_gained)) +
+  labs(caption = "We can model the number of pounds gained as a Poisson 
+       random variable with an inflated zero count.")
 ```
 
 ## Predictor Variables
 \begin{block}{Key Predictor 1: Total Metabolic Minutes}
 \begin{itemize}
-\item A measure of weekly exercise time.
-\item weighted sum of walk, moderate, and vigorous exercise.
+\item A measure of weekly exercise time
+\item A weighted sum of walk, moderate, and vigorous exercise
 \end{itemize}
 \end{block}
 
 \begin{block}{Key Predictor 2: Shift Time}
 \begin{itemize}
-\item The time when the respondent's shift begins.
-\item Treated as ordinal.
+\item The time when the respondent's shift begins
+\item Treated as ordinal
 \end{itemize}
 \end{block}
 
@@ -158,32 +160,32 @@ ggplot(data.frame(lbs_jitter), aes(x=lbs_jitter,y= ..density..))+
 ## Missing Data and Outliers
 \begin{alertblock}{Missing Observations}
 \begin{itemize}
-\item 392 responses from a population of 1,100 employees.
-\item 44 missing weight gain.
-\item 238 remaining after imputing TMM.
+\item 392 responses from a population of 1,100 employees
+\item 44 missing weight gain
+\item 238 remaining after imputing TMM
 \end{itemize}
 \end{alertblock}
 
 \begin{block}{Outliers}
 \begin{itemize}
-\item 7 observations of weight gain fall outside of the 95% IQR.
-\item Model fit is improved with the omission of these observations.
+\item 8 observations of weight gain outside of 1.5*IQR range
+\item Model fit improved with omission of these 8 observations
 \begin{enumerate}
-\item Log-likelihood rises from -1115 to -767.7.
-\item Diagnostic plots are improved.
+\item Log-likelihood rises from -1115 to -767.7
+\item Diagnostic plots are improved
 \end{enumerate}
 \end{itemize}
 \end{block}
 
 ## Model Building
 ### Causal Elicitation
-- Causal questions require explicit modeling of causation.
-- Use caution in interpretation (this was not a RCT).
+- Causal questions require explicit modeling of causation
+- Use caution in interpretation (this was not a RCT)
 
 ### Interactions
-- We do not have a theoretical expectation for interaction effects.
-- We check for interactions with gender and shift.
-- Inclusion was based on examination of different slopes for different factor levels.
+- No a priori theoretical expectation for interaction effects
+- Checked all predictors for interactions with gender and shift
+- Included only if different factor levels had non-parallel slopes
 
 
 ## Our Model
@@ -233,8 +235,8 @@ ggdag(CI.graph) + theme_dag()+geom_dag_node(col = "gray", size=20) + geom_dag_te
 
 ##  Transformations
 
-We only identified TMM as requiring a transformation (natural log) to compress the scale and reduce the right-skew.
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=4}
+Only TMM required a transformation (natural log) to reduce the skewdness.
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=7}
 par(mfrow=c(2,1))
 gg <- ggplot(group_by(p1.Data2, gender), aes(x=Total_Met_Min, y=..density..))+
   geom_histogram(color = cb_palette[1], fill = cb_palette[2]) + 
@@ -257,12 +259,12 @@ ggarrange(gg, gg1, nrow = 2)
 ::: {.block}
 ### Zero-Inflated Poisson Model
 - Binomial model for gaining weight or not:
-    + Coefficients represent the change in log-odds
-    + We found no significant predictors in this model.
+    + Coefficients represent the change in log-odds of gaining weight
+    + No significant predictors found in this part of the model
 
 - Poisson Model for number of pounds gained:
-    + Coefficients represent change in log-mean.
-    + We found 6 significant predictors.
+    + Coefficients represent change in log-mean pounds gained
+    + 6 significant predictors found in this part of the model
 :::
 
 Variable                        Coefficient   p-value
@@ -301,22 +303,25 @@ plot(fitted(zipmod.ord3), resid(zipmod.ord3),
 
 ## Discussion
 :::{.block}
-### Main Effects
-- TMM has a \alert{negative }effect on gained weight.
-- Later shifts have a \alert{negative} effect.
-- Beginning weight has a \alert{small positive} effect.
+### Main Effects on Weight Gain
+- TMM has a \alert{negative} effect
+- Later shifts have a \alert{negative} effect
+- Beginning weight has a \alert{small positive} effect
 :::
 :::{.block}
 ### Interactions
-- Effect of TMM is \alert{weaker} with later shifts.
-- Effect of shift is \alert{stronger} in men.
-- Higher beginning weight is associated with \alert{greater} weight gain in men.
+- Effect of TMM is \alert{weaker} with later shifts
+- Effect of shift is \alert{stronger} in men
+- Higher beginning weight is associated with \alert{greater} weight gain in men
 :::
 \begin{alertblock}{Caveats and Future Research}
 \begin{itemize}
-\item We need more research (preferably RCT) on who gains weight.
-\item Causal inference is based on strong assumptions and should be tested farther.
-\item This study does not distinguish between healthy and unhealthy weight gain.
+\item Need more research (preferably RCT) on who gains weight
+\item Causal inference based on strong assumptions
+\begin{itemize}
+\item Should be tested further
+\end{itemize}
+\item Study does not distinguish between healthy and unhealthy weight gain
 \end{itemize}
 \end{alertblock}
 
@@ -355,8 +360,8 @@ summ2$coefficients[[2]][,c(1,2,4)] %>%
 ```
 
 ## Shift by Gender
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=2, fig.width=3}
-ggplot(group_by(p1.Data2, gender), aes(x=shift)) +
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=7}
+ggplot(group_by(p1.Data2, gender), aes(x=shift, color = shift)) +
   geom_bar(color = cb_palette[1], fill = cb_palette[2]) + 
   scale_color_manual(values  =  cb_palette) +
   labs(title = "Barplot of Shift",
@@ -366,7 +371,7 @@ ggplot(group_by(p1.Data2, gender), aes(x=shift)) +
 ```
 
 ## Age and Log-transformation
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=4}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=7}
 gg <- ggplot(group_by(p1.Data2, gender), aes(x=Age, y = ..density..)) +
   geom_histogram(color = cb_palette[1], fill = cb_palette[2], binwidth = 4) + 
   geom_density() +
@@ -387,7 +392,7 @@ ggarrange(gg, gg1, nrow = 2)
 ```
 
 ## Weight and Log-Transformation
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=4}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=7}
 gg <- ggplot(group_by(p1.Data2, gender), aes(x=beg_weight, y = ..density..)) +
   geom_histogram(color = cb_palette[1], fill = cb_palette[2], bins = 12) + 
   geom_density() +
@@ -409,62 +414,79 @@ ggarrange(gg, gg1, nrow = 2)
 
 ## TMM and Shift Interaction
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Total_Met_Min, y=lbs_gained, color=shift)) +geom_point()+
+ggplot(p1.Data2[!is.na(p1.Data2$shift),], aes(x=Total_Met_Min, y=lbs_gained, color=shift)) +geom_point()+
   geom_smooth(method="lm", se= F) +
   scale_color_manual(values  =  rep(cb_palette,2)) + 
-  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Shift",
-       x = "Total Metabolic Minutes",
-       y = "Weight Gain")
+  labs(title = "Weight Gain vs. Total Metabolic Minutes",
+       subtitle = "Split by Shift",
+       x = "TMM (log scale)",
+       y = "Pounds Gained",
+       caption = "Non-parallel lines suggest interaction present") +
+  scale_x_log10()
 ```
 
 ## Age and Shift Interaction
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=Age, y=lbs_gained, color=shift)) +geom_point()+
+ggplot(p1.Data2[!is.na(p1.Data2$shift),], aes(x=Age, y=lbs_gained, color=shift)) +geom_point()+
   geom_smooth(method="lm", se= F) +
   scale_color_manual(values  =  rep(cb_palette,2)) +
-  labs(title = "Pounds Gained vs. Age split by Shift",
+  labs(title = "Weight Gain vs. Age",
+       subtitle = "Split by Shift",
       x = "Age",
-      y= "Weight Gain")
+      y= "Pounds Gained",
+      caption = "Non-parallel lines suggest interaction present")
 ```
 
 ## Beginning Weight and Shift Interaction
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$shift),], aes(x=beg_weight, y=lbs_gained, color=shift)) +geom_point()+
+ggplot(p1.Data2[!is.na(p1.Data2$shift),], aes(x=beg_weight, y=lbs_gained, color=shift)) +geom_point()+
   geom_smooth(method="lm", se= F) + 
   scale_color_manual(values  =  rep(cb_palette,2)) +
-  labs(title = "Pounds Gained vs. Beginning Weight split by Shift",
+  labs(title = "Weight Gain vs. Beginning Weight",
+       subtitle = "Split by Shift",
        x = "Beginning Weight",
-       y= "Weight Gain")
-```
-
-## TMM and Gender Interaction
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
-  geom_smooth(method="lm", se = FALSE) +
-  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
-  labs(title = "Pounds Gained vs. Total Metabolic Minutes split by Gender",
-       x = "TMM",
-       y = "Weight Gain")
+       y= "Pounds Gained",
+       caption = "Non-parallel lines suggest interaction present")
 ```
 
 ## Gender and Shift Interaction
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
+ggplot(p1.Data2[!is.na(p1.Data2$gender),], aes(x=oshift, y=lbs_gained, color=gender)) +geom_point()+
   geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
-  labs(title = "Pounds Gained vs. Shift split by Gender",
-       y="Weight Gained",
-       x = "Shift")
+  labs(title = "Weight Gain vs. Shift",
+       subtitle = "Split by Gender",
+       y="Pounds Gained",
+       x="Shift",
+       caption = "Non-parallel lines suggest interaction present") +
+  scale_x_continuous(breaks = seq(1,10,1), labels = c("1" = "7am","2" = "8am","3"= "9am","4"= "10am","5"= "11am","6"= "12pm","7"= "1pm","8"="2pm","9"= "other","10"= "NA"))
 ```
+
+
+## TMM and Gender Interaction
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
+ggplot(p1.Data2[!is.na(p1.Data2$gender),], aes(x=Total_Met_Min, y=lbs_gained, color=gender)) +geom_point()+
+  geom_smooth(method="lm", se = FALSE) +
+  scale_color_manual(values  =  rep(cb_palette,2)[2:3]) +
+  labs(title = "Weight Gain vs. Total Metabolic Minutes", 
+       subtitle = "Split by Gender",
+       x = "TMM (log scale)",
+       y = "Pounds Gained",
+       caption = "Parallel lines suggest no interaction present") +
+  scale_x_log10()
+```
+
 
 ## Age and Gender Interaction
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3, fig.width=5}
-ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
+ggplot(p1.Data2[!is.na(p1.Data2$gender),], aes(x=Age, y=lbs_gained, color=gender)) +geom_point()+
   geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
-  labs(title = "Pounds Gained vs. Age split by Gender",
+  labs(title = "Weight Gain vs. Age",
+       subtitle = "Split by Gender",
        x = "Age",
-       y = "Weight Gain")
+       y = "Pounds Gained",
+       caption = "Parallel lines suggest no interaction present")
 ```
 
 ## Beginning Weight and Gender Interaction
@@ -472,7 +494,9 @@ ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=Age, y=lbs_gained, color=gender))
 ggplot(p1.Data[!is.na(p1.Data$gender),], aes(x=beg_weight, y=lbs_gained, color=gender)) +geom_point()+
   geom_smooth(method="lm", se = FALSE) +
   scale_color_manual(values  =  rep(cb_palette,2)[c(2,3)]) +
-  labs(title = "Pounds Gained vs Beginning Weight split by Gender",
+  labs(title = "Weight Gain vs Beginning Weight",
+       subtitle = "Split by Gender",
        x = "Beginning Weight",
-       y = "Weight Gain")
+       y = "Pounds Gained",
+       caption = "Non-parallel lines suggest interaction present")
 ```
