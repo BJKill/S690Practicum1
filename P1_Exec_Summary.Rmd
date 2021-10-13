@@ -1,0 +1,30 @@
+---
+title: "Practicum 1 Executive Summary"
+author: "Paul Hunt, Brandon Kill, Brendan Winters"
+output: 
+    pdf_document:
+    keep_tex: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+One may posit that the rapid development of, and increase in, computer-related jobs has led to a decline in individual physical activity over the past century, which could be leading to a rapid increase in obesity and obesity-related health issues. In the last two decades alone (1999-2018), the severe obesity rate in the U.S. has nearly doubled from 4.7% to 9.2% according to the CDC^[https://www.cdc.gov/nchs/products/databriefs/db360.htm], and many employers have felt this increase in obesity in the increases in their employee healthcare costs.  The CDC^[https://www.cdc.gov/healthyweight/effects/index.html] also notes that there are numerous increases to health risks associated with gaining unhealthy weight, such as increased risks of high blood pressure, heart disease, stroke, sleep issues, depression, anxiety, and, as they put it, "all causes of mortality".  In response to this, many large employers have installed fitness centers on their campuses, and one of those companies has enlisted our help analyzing the voluntarily-submitted exercise and wellness data gathered from their employees.
+
+# The Data
+Our task was to determine how time spent exercising (measured in Total Metabolic Minutes) and shift (time of day a person's job begins) impacted the amount of weight gained over an eight month period for employees at a call center in the American South. Out of over 1000 employees, 342 provided us with information on their weight gain, and of those, only 238 provided us with information on all of the predictors we felt were relevant for our study. Eight extreme values for weight gain were identified as outliers, and those cases were removed for the benefit of the study. 230 subjects were then used for the final analysis - 155 who gained weight and 80 who did not. Gender (152 female, 78 male) was used as a predictor in the study, as it had clear impact on the values of our predictors and of our response. Job and Department were excluded as variables, as all of the information contained in both of those variables is likely to be contained in the shift variable as well. Beginning weight of the participant and their age were also included as predictors since they had an effect on the time a subject spent exercising. Only one transformation of our predictors was used: the log of Total Metabolic Minutes. It should be noted that not all weight gain is inherently unhealthy, but the data provided did not differentiate between healthy and unhealthy weight gain.
+
+\newpage
+# Methods
+Ultimately, we settled on a zero-inflated Poisson model, which uses a logit-link to the binomial for determining if an employee crosses the threshold of gaining weight, and then a log-link to the Poisson for determining the number of pounds gained once the threshold is crossed. Although weight gain is an inherently continuous random variable, we are using two discrete distributions (binomial, Poisson) to model it. This is because whether or not one gained weight is a binomial process, and the vast majority of respondents rounded their weight or weight change to the nearest whole pound. Thus, modeling the number of pounds gained in a fixed time period as a Poisson random variable of counts is appropriate in this setting, especially since the shape of the distribution of pounds gained fits the Poisson model so well.  The ease of interpretation of the results of the analysis was also considered as a reason for choosing this method.
+
+# Results
+Our study finds that the number of pounds gained was reliably modeled by a Zero-Inflated Poisson; however, no variables were able to significantly predict whether or not somebody gained weight (the binomial part of the model). If somebody did gain weight, though, Total Metabolic Minutes, shift, and the interaction between them were the three most significant predictors of the number of pounds gained. Our results indicated that increasing total metabolic minutes did lower the expected number of pounds gained (as anticipated), as did being assigned a later shift; however, the interaction between shift and total metabolic minutes indicated that the net effect of metabolic minutes on weight gain was less pronounced for employees with later shifts.  We also found that the benefits of lower average weight gain associated with a later shift is even more pronounced for males than females. In other words, out of all of the employees who do gain weight, weight gain is the least pronounced, on average, for those who exercise more, come into work at a later time, and identify as male.
+
+# Recommendations
+Since increased exercise time and later shifts both tended to lead to lower weight gain on average, our first recommendation is for the company to allow and encourage exercise breaks for all employees during the day while their employees are on campus and can use the on-campus facilities. One way of doing this may be to encourage employees to clock in an hour early or clock out an hour late, as long as they are using the on-campus workout facilities.  Another suggestion would be to bring somebody in to lead exercise classes at regularly-scheduled times during the day, so employees are not forced to exercise alone. According to Plante, et.al. (2010)^[https://www.psychologytoday.com/sites/default/files/attachments/34033/jssarticle.pdf], people tend to gravitate towards the exercise behavior of those around them. By encouraging the employees to exercise together in a group at regularly-scheduled times, the company would be giving their emplyees both the physical and social tools required to maintain a healthy lifestyle.  The only other reccommandation would be, if at all possible, to give employees more flexibility over their schedule so that their shift start time is more reflective of what a healthy daily routine would look like for them, personally.
+
+
+
